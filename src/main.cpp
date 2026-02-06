@@ -9,6 +9,7 @@
 #include "meter_widget.h"
 #include "rade_decoder.h"
 #include "spectrum_widget.h"
+#include "waterfall_widget.h"
 
 /* ── globals (single-window app) ────────────────────────────────────────── */
 
@@ -21,6 +22,7 @@ static GtkWidget*               g_btn                = nullptr;   // start / sto
 static GtkWidget*               g_meter_in           = nullptr;   // input level meter
 static GtkWidget*               g_meter_out          = nullptr;   // output level meter
 static GtkWidget*               g_spectrum           = nullptr;   // spectrum widget
+static GtkWidget*               g_waterfall          = nullptr;   // waterfall widget
 static GtkWidget*               g_status             = nullptr;   // status label
 static guint                    g_timer              = 0;         // meter update timer
 static bool                     g_updating_combos    = false;     // guard programmatic changes
@@ -124,6 +126,7 @@ static void stop_decoder()
     if (g_meter_in)  meter_widget_update(g_meter_in, 0.f);
     if (g_meter_out) meter_widget_update(g_meter_out, 0.f);
     if (g_spectrum)  spectrum_widget_update(g_spectrum, nullptr, 0, 8000.f);
+    if (g_waterfall) waterfall_widget_update(g_waterfall, nullptr, 0, 8000.f);
     set_btn_state(false);
 }
 
@@ -138,12 +141,16 @@ static gboolean on_meter_tick(gpointer /*data*/)
     if (g_meter_out)
         meter_widget_update(g_meter_out, g_decoder->get_output_level_left());
 
-    /* update spectrum with input audio FFT */
-    if (g_spectrum) {
+    /* update spectrum and waterfall with input audio FFT */
+    {
         float spec[RadaeDecoder::SPECTRUM_BINS];
         g_decoder->get_spectrum(spec, RadaeDecoder::SPECTRUM_BINS);
-        spectrum_widget_update(g_spectrum, spec, RadaeDecoder::SPECTRUM_BINS,
-                               g_decoder->spectrum_sample_rate());
+        if (g_spectrum)
+            spectrum_widget_update(g_spectrum, spec, RadaeDecoder::SPECTRUM_BINS,
+                                   g_decoder->spectrum_sample_rate());
+        if (g_waterfall)
+            waterfall_widget_update(g_waterfall, spec, RadaeDecoder::SPECTRUM_BINS,
+                                    g_decoder->spectrum_sample_rate());
     }
 
     /* update status with sync info */
@@ -296,7 +303,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     /* ── window ────────────────────────────────────────────────────── */
     GtkWidget* window = gtk_application_window_new(app);
     gtk_window_set_title         (GTK_WINDOW(window), "RADAE Decoder");
-    gtk_window_set_default_size  (GTK_WINDOW(window), 400, 580);
+    gtk_window_set_default_size  (GTK_WINDOW(window), 500, 400);
     gtk_window_set_resizable     (GTK_WINDOW(window), TRUE);
     g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
 
@@ -358,8 +365,15 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     g_meter_in = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_in, FALSE, FALSE, 0);
 
+    GtkWidget* spec_waterfall_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+
     g_spectrum = spectrum_widget_new();
-    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_spectrum, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_spectrum, TRUE, TRUE, 0);
+
+    g_waterfall = waterfall_widget_new();
+    gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_waterfall, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), spec_waterfall_vbox, TRUE, TRUE, 0);
 
     g_meter_out = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_out, FALSE, FALSE, 0);

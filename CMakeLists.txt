@@ -25,6 +25,7 @@ add_executable(radae_decoder
     src/meter_widget.cpp
     src/rade_decoder.cpp
     src/spectrum_widget.cpp
+    src/waterfall_widget.cpp
 )
 
 target_include_directories(radae_decoder PRIVATE

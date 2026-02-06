@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include <cstdio>
+#include <fstream>
+#include <sys/stat.h>
 
 #include "audio_input.h"
 #include "meter_widget.h"
@@ -22,6 +24,74 @@ static GtkWidget*               g_spectrum           = nullptr;   // spectrum wi
 static GtkWidget*               g_status             = nullptr;   // status label
 static guint                    g_timer              = 0;         // meter update timer
 static bool                     g_updating_combos    = false;     // guard programmatic changes
+
+/* ── config persistence ─────────────────────────────────────────────────── */
+
+static std::string config_path()
+{
+    const char* home = getenv("HOME");
+    if (!home) home = "/tmp";
+    std::string dir = std::string(home) + "/.config";
+    mkdir(dir.c_str(), 0755);
+    return dir + "/radae-decoder.conf";
+}
+
+static void save_config()
+{
+    int in_idx  = gtk_combo_box_get_active(GTK_COMBO_BOX(g_input_combo));
+    int out_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo));
+
+    std::string in_name, out_name;
+    if (in_idx >= 0 && in_idx < static_cast<int>(g_input_devices.size()))
+        in_name = g_input_devices[static_cast<size_t>(in_idx)].name;
+    if (out_idx >= 0 && out_idx < static_cast<int>(g_output_devices.size()))
+        out_name = g_output_devices[static_cast<size_t>(out_idx)].name;
+
+    std::ofstream f(config_path());
+    if (f) {
+        f << "input=" << in_name << '\n';
+        f << "output=" << out_name << '\n';
+    }
+}
+
+/* Try to select saved devices in the combos.  Returns true if both found. */
+static bool restore_config()
+{
+    std::ifstream f(config_path());
+    if (!f) return false;
+
+    std::string saved_in, saved_out;
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.compare(0, 6, "input=") == 0)
+            saved_in = line.substr(6);
+        else if (line.compare(0, 7, "output=") == 0)
+            saved_out = line.substr(7);
+    }
+
+    if (saved_in.empty() && saved_out.empty()) return false;
+
+    int in_idx = -1, out_idx = -1;
+    for (size_t i = 0; i < g_input_devices.size(); i++) {
+        if (g_input_devices[i].name == saved_in) {
+            in_idx = static_cast<int>(i);
+            break;
+        }
+    }
+    for (size_t i = 0; i < g_output_devices.size(); i++) {
+        if (g_output_devices[i].name == saved_out) {
+            out_idx = static_cast<int>(i);
+            break;
+        }
+    }
+
+    g_updating_combos = true;
+    if (in_idx >= 0)  gtk_combo_box_set_active(GTK_COMBO_BOX(g_input_combo), in_idx);
+    if (out_idx >= 0) gtk_combo_box_set_active(GTK_COMBO_BOX(g_output_combo), out_idx);
+    g_updating_combos = false;
+
+    return (in_idx >= 0 && out_idx >= 0);
+}
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -121,6 +191,7 @@ static void on_input_combo_changed(GtkComboBox* combo, gpointer /*data*/)
     if (g_updating_combos) return;
     int in_idx  = gtk_combo_box_get_active(combo);
     int out_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo));
+    save_config();
     if (in_idx >= 0 && out_idx >= 0)
         start_decoder(in_idx, out_idx);
 }
@@ -131,6 +202,7 @@ static void on_output_combo_changed(GtkComboBox* combo, gpointer /*data*/)
     if (g_updating_combos) return;
     int out_idx = gtk_combo_box_get_active(combo);
     int in_idx  = gtk_combo_box_get_active(GTK_COMBO_BOX(g_input_combo));
+    save_config();
     if (in_idx >= 0 && out_idx >= 0)
         start_decoder(in_idx, out_idx);
 }
@@ -303,6 +375,14 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     /* ── show everything, then populate the combo ──────────────────── */
     gtk_widget_show_all(window);
     on_refresh(nullptr, nullptr);                  // first device-list load
+
+    /* ── restore saved device selections ──────────────────────────── */
+    if (restore_config()) {
+        int in_idx  = gtk_combo_box_get_active(GTK_COMBO_BOX(g_input_combo));
+        int out_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo));
+        if (in_idx >= 0 && out_idx >= 0)
+            start_decoder(in_idx, out_idx);
+    }
 }
 
 /* ── entry point ────────────────────────────────────────────────────────── */

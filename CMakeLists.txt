@@ -19,7 +19,7 @@ pkg_check_modules(ALSA REQUIRED alsa)
 add_subdirectory(radae_nopy)
 
 # ── target ───────────────────────────────────────────────────────────────────
-add_executable(audio_level_meter
+add_executable(radae_decoder
     src/main.cpp
     src/audio_input.cpp
     src/meter_widget.cpp
@@ -27,7 +27,7 @@ add_executable(audio_level_meter
     src/spectrum_widget.cpp
 )
 
-target_include_directories(audio_level_meter PRIVATE
+target_include_directories(radae_decoder PRIVATE
     ${GTK_INCLUDE_DIRS}
     ${ALSA_INCLUDE_DIRS}
     ${OPUS_SOURCE_DIR}/dnn
@@ -36,7 +36,7 @@ target_include_directories(audio_level_meter PRIVATE
     ${OPUS_SOURCE_DIR}
 )
 
-target_link_libraries(audio_level_meter
+target_link_libraries(radae_decoder
     rade
     opus
     m
@@ -45,7 +45,7 @@ target_link_libraries(audio_level_meter
     Threads::Threads
 )
 
-target_compile_options(audio_level_meter PRIVATE
+target_compile_options(radae_decoder PRIVATE
     ${GTK_CFLAGS_OTHER}
     -Wall -Wextra -Wpedantic
 )

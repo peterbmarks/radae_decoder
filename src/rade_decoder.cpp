@@ -40,12 +40,22 @@ static void init_hilbert_coeffs(float coeffs[], int ntaps) {
 
 /* ── ALSA helper: open a PCM device with desired params ──────────────── */
 
+/* Convert "hw:X,Y" to "plughw:X,Y" so ALSA handles rate/channel/format
+   conversion automatically.  Pass through anything else unchanged. */
+static std::string to_plughw(const std::string& hw_id)
+{
+    if (hw_id.compare(0, 3, "hw:") == 0)
+        return "plughw:" + hw_id.substr(3);
+    return hw_id;
+}
+
 static bool open_alsa(snd_pcm_t** pcm, const std::string& hw_id,
                       snd_pcm_stream_t stream, unsigned int* rate,
                       snd_pcm_uframes_t period_frames,
                       snd_pcm_uframes_t buffer_frames)
 {
-    if (snd_pcm_open(pcm, hw_id.c_str(), stream, 0) < 0)
+    std::string dev = to_plughw(hw_id);
+    if (snd_pcm_open(pcm, dev.c_str(), stream, 0) < 0)
         return false;
 
     snd_pcm_hw_params_t* hw = nullptr;

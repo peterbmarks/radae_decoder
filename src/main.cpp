@@ -6,6 +6,7 @@
 #include "audio_input.h"
 #include "meter_widget.h"
 #include "rade_decoder.h"
+#include "spectrum_widget.h"
 
 /* ── globals (single-window app) ────────────────────────────────────────── */
 
@@ -16,6 +17,7 @@ static GtkWidget*               g_input_combo        = nullptr;   // input devic
 static GtkWidget*               g_output_combo       = nullptr;   // output device selector
 static GtkWidget*               g_btn                = nullptr;   // start / stop
 static GtkWidget*               g_meter              = nullptr;   // bar-meter widget
+static GtkWidget*               g_spectrum           = nullptr;   // spectrum widget
 static GtkWidget*               g_status             = nullptr;   // status label
 static guint                    g_timer              = 0;         // meter update timer
 static bool                     g_updating_combos    = false;     // guard programmatic changes
@@ -48,7 +50,8 @@ static void stop_decoder()
 {
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); }
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
-    if (g_meter)   meter_widget_update(g_meter, 0.f, 0.f);
+    if (g_meter)     meter_widget_update(g_meter, 0.f, 0.f);
+    if (g_spectrum)  spectrum_widget_update(g_spectrum, nullptr, 0, 8000.f);
     set_btn_state(false);
 }
 
@@ -62,6 +65,14 @@ static gboolean on_meter_tick(gpointer /*data*/)
         meter_widget_update(g_meter,
                             g_decoder->get_output_level_left(),
                             g_decoder->get_output_level_right());
+
+    /* update spectrum with input audio FFT */
+    if (g_spectrum) {
+        float spec[RadaeDecoder::SPECTRUM_BINS];
+        g_decoder->get_spectrum(spec, RadaeDecoder::SPECTRUM_BINS);
+        spectrum_widget_update(g_spectrum, spec, RadaeDecoder::SPECTRUM_BINS,
+                               g_decoder->spectrum_sample_rate());
+    }
 
     /* update status with sync info */
     if (g_decoder->is_synced()) {
@@ -211,7 +222,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     /* ── window ────────────────────────────────────────────────────── */
     GtkWidget* window = gtk_application_window_new(app);
     gtk_window_set_title         (GTK_WINDOW(window), "RADAE Decoder");
-    gtk_window_set_default_size  (GTK_WINDOW(window), 300, 480);
+    gtk_window_set_default_size  (GTK_WINDOW(window), 400, 580);
     gtk_window_set_resizable     (GTK_WINDOW(window), TRUE);
     g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);
 
@@ -266,6 +277,10 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     gtk_style_context_add_class(gtk_widget_get_style_context(g_btn), "start-btn");
     g_signal_connect(g_btn, "clicked", G_CALLBACK(on_start_stop), NULL);
     gtk_box_pack_start(GTK_BOX(vbox), g_btn, FALSE, FALSE, 0);
+
+    /* ── spectrum (input audio, fixed height) ──────────────────────── */
+    g_spectrum = spectrum_widget_new();
+    gtk_box_pack_start(GTK_BOX(vbox), g_spectrum, FALSE, FALSE, 0);
 
     /* ── meter (expands to fill remaining vertical space) ─────────── */
     g_meter = meter_widget_new();

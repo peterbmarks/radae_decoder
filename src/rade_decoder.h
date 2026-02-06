@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <atomic>
+#include <mutex>
 #include <thread>
 #include <alsa/asoundlib.h>
 
@@ -35,6 +36,14 @@ public:
     float freq_offset()           const { return freq_offset_.load(std::memory_order_relaxed); }
     float get_output_level_left() const { return output_level_.load(std::memory_order_relaxed); }
     float get_output_level_right()const { return output_level_.load(std::memory_order_relaxed); } // mono
+
+    /* spectrum (thread-safe via mutex) --------------------------------------- */
+    static constexpr int FFT_SIZE      = 512;
+    static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 256
+
+    void get_spectrum(float* out, int n) const;           // copies up to n bins (dB)
+    int  spectrum_bins()          const { return SPECTRUM_BINS; }
+    float spectrum_sample_rate()  const { return 8000.f; } // always at modem rate
 
 private:
     void processing_loop();
@@ -71,6 +80,11 @@ private:
     /* ── Delay buffer for Hilbert real part ────────────────────────────────── */
     float delay_buf_[HILBERT_NTAPS] = {};
     int   delay_pos_                = 0;
+
+    /* ── FFT / spectrum ────────────────────────────────────────────────────── */
+    float              fft_window_[FFT_SIZE]      = {};
+    float              spectrum_mag_[SPECTRUM_BINS] = {};   // dB magnitudes
+    mutable std::mutex spectrum_mutex_;
 
     /* ── Thread & atomics ─────────────────────────────────────────────────── */
     std::thread        thread_;

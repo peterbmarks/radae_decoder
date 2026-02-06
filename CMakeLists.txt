@@ -24,6 +24,7 @@ add_executable(audio_level_meter
     src/audio_input.cpp
     src/meter_widget.cpp
     src/rade_decoder.cpp
+    src/spectrum_widget.cpp
 )
 
 target_include_directories(audio_level_meter PRIVATE

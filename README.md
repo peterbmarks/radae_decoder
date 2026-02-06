@@ -13,6 +13,9 @@ A real-time RADAE (Radio Autoencoder) decoder for Linux. Captures RADAE modem au
 
 [Video demo](https://youtu.be/Q1SExfmMqZ0?si=LSMlgETFaZ1H1Fn5)
 
+Unlike the official FreeDV app, this program uses an experimental C port of the python code and does
+not require python to run. It's (currently) a statically linked single binary of just 11MB compared to
+600MB. (But, of course, it does far far less).
 
 ## Features
 

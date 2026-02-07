@@ -15,10 +15,57 @@ set(ENV{PKG_CONFIG_PATH} "/usr/lib/x86_64-linux-gnu/pkgconfig")
 pkg_check_modules(GTK  REQUIRED gtk+-3.0)
 pkg_check_modules(ALSA REQUIRED alsa)
 
-# ── RADAE (builds librade + opus with FARGAN/LPCNet) ─────────────────────────
-add_subdirectory(radae_nopy)
+# ── Opus (with FARGAN/LPCNet support) ────────────────────────────────────────
+include(cmake/BuildOpus.cmake)
 
-# ── target ───────────────────────────────────────────────────────────────────
+# ── RADE library (Python-free) ───────────────────────────────────────────────
+set(RADE_DSP_SOURCES
+    src/rade_dsp.c
+    src/rade_ofdm.c
+    src/rade_bpf.c
+    src/rade_acq.c
+    src/rade_tx.c
+    src/rade_rx.c
+)
+
+add_library(rade
+    src/rade_api_nopy.c
+    src/rade_enc.c
+    src/rade_dec.c
+    src/rade_enc_data.c
+    src/rade_dec_data.c
+    ${RADE_DSP_SOURCES}
+)
+target_link_libraries(rade opus m)
+target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1 -DRADE_PYTHON_FREE=1)
+target_include_directories(rade PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+set_target_properties(rade PROPERTIES
+    VERSION 0.1
+    SOVERSION 0.1
+    PUBLIC_HEADER "src/rade_api.h"
+)
+
+# ── RADE utilities ───────────────────────────────────────────────────────────
+add_executable(lpcnet_demo src/lpcnet_demo.c)
+target_link_libraries(lpcnet_demo opus m)
+
+add_executable(radae_tx src/radae_tx_nopy.c)
+target_link_libraries(radae_tx rade opus m)
+
+add_executable(radae_rx src/radae_rx_nopy.c)
+target_link_libraries(radae_rx rade opus m)
+
+add_executable(real2iq src/real2iq.c)
+target_link_libraries(real2iq m)
+
+add_executable(rade_demod src/rade_demod.c)
+target_link_libraries(rade_demod rade opus m)
+
+add_executable(rade_modulate src/rade_modulate.c)
+target_link_libraries(rade_modulate rade opus m)
+
+# ── GUI application ──────────────────────────────────────────────────────────
 add_executable(radae_decoder
     src/main.cpp
     src/audio_input.cpp

@@ -237,6 +237,57 @@ The neural network weight files (`rade_enc_data.c`, `rade_dec_data.c`) are ~24 M
 - **Playback rate**: Prefers 16 kHz; accepts any rate and resamples
 - **Channels**: 1 (mono)
 
+## Demo tools
+
+### RADE Demod: WAV RADE → WAV Speech Audio
+Take a wav file off air and produce a demodulated wav file
+
+Usage:
+```
+rade_demod [-v 0|1|2] <input.wav> <output.wav>
+```
+
+### RADE Modulate: WAV Speech Audio → WAV RADE
+Take a wav file with speech in it and produce a RADE OFDM encoded output wav file ready for transmission.
+
+Usage:
+```
+rade_modulate [-v 0|1|2] <intput.wav> <output.wav>
+```
+
+### Encode: WAV → IQ
+```
+sox ../voice.wav -r 16000 -t .s16 -c 1 - | \
+  ./src/lpcnet_demo -features /dev/stdin - | \
+  ./src/radae_tx > tx.iq
+```
+
+### Decode: IQ → WAV  
+```
+cat tx.iq | \
+  ./src/radae_rx | \
+  ./src/lpcnet_demo -fargan-synthesis /dev/stdin - | \
+  sox -t .s16 -r 16000 -c 1 - decoded.wav
+```
+
+### Decode: WAV RADE → WAV (multiple steps)
+```
+usage: radae_rx [options]
+  -h, --help           Show this help
+  --model_name FILE    Path to model (ignored, uses built-in weights)
+  -v LEVEL             Verbosity level (0, 1, or 2)
+  --no-unsync          Disable automatic unsync
+```
+
+```
+sox ../FDV_offair.wav -r 8000 -e float -b 32 -c 1 -t raw - | \
+./src/real2iq | \
+./src/radae_rx > features.f32
+./src/lpcnet_demo -fargan-synthesis features.f32 - | \
+sox -t .s16 -r 16000 -c 1 - decoded.wav
+play decoded.wav
+```
+
 ## Credits
 
 - RADAE codec by David Rowe ([github.com/drowe67](https://github.com/drowe67))

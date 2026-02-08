@@ -364,7 +364,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     /* ── input device selector row ────────────────────────────────── */
     GtkWidget* input_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
-    GtkWidget* input_label = gtk_label_new("Input:");
+    GtkWidget* input_label = gtk_label_new("Input from radio:");
     gtk_widget_set_size_request(input_label, 50, -1);
     gtk_label_set_xalign(GTK_LABEL(input_label), 0.0);
     gtk_box_pack_start(GTK_BOX(input_hbox), input_label, FALSE, FALSE, 0);
@@ -384,7 +384,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     /* ── output device selector row ────────────────────────────────── */
     GtkWidget* output_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
-    GtkWidget* output_label = gtk_label_new("Output:");
+    GtkWidget* output_label = gtk_label_new("Output to speaker:");
     gtk_widget_set_size_request(output_label, 50, -1);
     gtk_label_set_xalign(GTK_LABEL(output_label), 0.0);
     gtk_box_pack_start(GTK_BOX(output_hbox), output_label, FALSE, FALSE, 0);

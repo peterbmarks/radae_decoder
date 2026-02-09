@@ -28,6 +28,7 @@ not require python to run. It's (currently) a statically linked single binary of
 - **Waterfall display** — Same as the spectrum but with vertical history
 - **Output level meter** — Calibrated dB scale (-60 to 0 dB) with peak hold, showing decoded output levels
 - **Sample rate flexibility** — Accepts any ALSA-supported input/output rate; internally resamples to/from the 8 kHz modem and 16 kHz speech rates
+- **Open WAV file recording** — Decodes and plays a WAV file recording such as those from the FreeDV app.
 
 ## How it works
 

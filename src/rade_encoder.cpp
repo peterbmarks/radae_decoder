@@ -107,7 +107,7 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
     /* ── ALSA playback (radio, prefer 8 kHz) ─────────────────────────── */
     rate_out_ = RADE_FS;
     if (!open_alsa(&pcm_out_, radio_hw_id, SND_PCM_STREAM_PLAYBACK,
-                   &rate_out_, 512, 4096)) {
+                   &rate_out_, 512, 8192)) {
         snd_pcm_close(pcm_in_); pcm_in_ = nullptr;
         return false;
     }
@@ -260,6 +260,30 @@ void RadaeEncoder::processing_loop()
     /* temporary buffer for resampled input */
     int resamp_out_max = static_cast<int>(READ_FRAMES) + 2;
     std::vector<float> resamp_tmp(static_cast<size_t>(resamp_out_max));
+
+    /* ── Pre-fill output buffer with silence so the ALSA playback buffer
+     *    has enough headroom to survive the ~120 ms gap between modem frame
+     *    writes (each modem frame requires accumulating 12 feature frames
+     *    of mic input before any output is produced). ──────────────────── */
+    {
+        const int prefill_frames = 2 * n_tx_out;              /* 2 modem frames */
+        int prefill_out = prefill_frames
+            * static_cast<int>(rate_out_) / static_cast<int>(RADE_FS);
+        std::vector<int16_t> silence(static_cast<size_t>(prefill_out), 0);
+        int rem = prefill_out;
+        int16_t* p = silence.data();
+        while (rem > 0) {
+            snd_pcm_sframes_t w = snd_pcm_writei(
+                pcm_out_, p, static_cast<snd_pcm_uframes_t>(rem));
+            if (w < 0) {
+                w = snd_pcm_recover(pcm_out_, static_cast<int>(w), 1);
+                if (w < 0) break;
+                continue;
+            }
+            rem -= static_cast<int>(w);
+            p   += w;
+        }
+    }
 
     while (running_.load(std::memory_order_relaxed)) {
 

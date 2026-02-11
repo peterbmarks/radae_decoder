@@ -301,10 +301,11 @@ void RadaeEncoder::processing_loop()
             }
             if (n == 0) continue;
 
-            /* convert S16 → float */
+            /* convert S16 → float, apply mic gain */
+            float gain = mic_gain_.load(std::memory_order_relaxed);
             std::vector<float> f_in(static_cast<size_t>(n));
             for (snd_pcm_sframes_t i = 0; i < n; i++)
-                f_in[static_cast<size_t>(i)] = capture_buf[static_cast<size_t>(i)] / 32768.0f;
+                f_in[static_cast<size_t>(i)] = capture_buf[static_cast<size_t>(i)] / 32768.0f * gain;
 
             /* resample to 16 kHz if needed */
             int got = resample_linear_stream(

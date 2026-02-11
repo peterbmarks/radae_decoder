@@ -32,6 +32,7 @@ static GtkWidget*               g_spectrum           = nullptr;   // spectrum wi
 static GtkWidget*               g_waterfall          = nullptr;   // waterfall widget
 static GtkWidget*               g_status             = nullptr;   // status label
 static GtkWidget*               g_settings_dlg       = nullptr;   // settings dialog
+static GtkWidget*               g_mic_slider         = nullptr;   // TX mic input level slider
 static GtkWidget*               g_tx_slider          = nullptr;   // TX output level slider
 static guint                    g_timer              = 0;         // meter update timer
 static bool                     g_updating_combos    = false;     // guard programmatic changes
@@ -74,6 +75,7 @@ static void save_config()
         f << "tx_input=" << tx_in_name << '\n';
         f << "tx_output=" << tx_out_name << '\n';
         f << "tx_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_tx_slider))) << '\n';
+        f << "mic_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_mic_slider))) << '\n';
     }
 }
 
@@ -85,6 +87,7 @@ static bool restore_config()
 
     std::string saved_in, saved_out, saved_tx_in, saved_tx_out;
     int saved_tx_level = -1;
+    int saved_mic_level = -1;
     std::string line;
     while (std::getline(f, line)) {
         if (line.compare(0, 6, "input=") == 0)
@@ -97,6 +100,8 @@ static bool restore_config()
             saved_tx_out = line.substr(10);
         else if (line.compare(0, 9, "tx_level=") == 0)
             saved_tx_level = std::stoi(line.substr(9));
+        else if (line.compare(0, 10, "mic_level=") == 0)
+            saved_mic_level = std::stoi(line.substr(10));
     }
 
     if (saved_in.empty() && saved_out.empty()) return false;
@@ -138,6 +143,8 @@ static bool restore_config()
 
     if (saved_tx_level >= 0 && saved_tx_level <= 100)
         gtk_range_set_value(GTK_RANGE(g_tx_slider), saved_tx_level);
+    if (saved_mic_level >= 0 && saved_mic_level <= 100)
+        gtk_range_set_value(GTK_RANGE(g_mic_slider), saved_mic_level);
 
     return (in_idx >= 0 && out_idx >= 0);
 }
@@ -164,7 +171,15 @@ static void set_btn_state(bool capturing)
     }
 }
 
-/* ── TX level slider callback ──────────────────────────────────────────── */
+/* ── TX level slider callbacks ─────────────────────────────────────────── */
+
+static void on_mic_level_changed(GtkRange* range, gpointer /*data*/)
+{
+    double pct = gtk_range_get_value(range);
+    float gain = static_cast<float>(pct / 100.0 * 2.0);   /* 0-100% → 0.0-2.0 */
+    if (g_encoder)
+        g_encoder->set_mic_gain(gain);
+}
 
 static void on_tx_level_changed(GtkRange* range, gpointer /*data*/)
 {
@@ -684,7 +699,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     /* ── transmit output (radio) selector row ─────────────────────── */
     GtkWidget* tx_output_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
-    GtkWidget* tx_output_label = gtk_label_new("Radio Out:");
+    GtkWidget* tx_output_label = gtk_label_new("Output to Radio:");
     gtk_widget_set_size_request(tx_output_label, 50, -1);
     gtk_label_set_xalign(GTK_LABEL(tx_output_label), 0.0);
     gtk_box_pack_start(GTK_BOX(tx_output_hbox), tx_output_label, FALSE, FALSE, 0);
@@ -728,6 +743,16 @@ static void activate(GtkApplication* app, gpointer /*data*/)
 
     /* ── input meter + spectrum + output meter (side by side) ────────── */
     GtkWidget* meter_spec_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+
+    g_mic_slider = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
+    gtk_range_set_inverted(GTK_RANGE(g_mic_slider), TRUE);   /* 100 at top */
+    gtk_range_set_value(GTK_RANGE(g_mic_slider), 50);
+    gtk_scale_set_draw_value(GTK_SCALE(g_mic_slider), FALSE);
+    gtk_widget_set_size_request(g_mic_slider, 30, -1);
+    gtk_widget_set_tooltip_text(g_mic_slider, "TX mic input level");
+    g_signal_connect(g_mic_slider, "value-changed",
+                     G_CALLBACK(on_mic_level_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_mic_slider, FALSE, FALSE, 0);
 
     g_meter_in = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_in, FALSE, FALSE, 0);

@@ -446,6 +446,7 @@ static void on_refresh(GtkButton* /*btn*/, gpointer /*data*/)
 /* clean up before the window disappears */
 static void on_window_destroy(GtkWidget* /*w*/, gpointer /*data*/)
 {
+    save_config();
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); delete g_decoder; g_decoder = nullptr; }
     if (g_encoder) { g_encoder->stop(); g_encoder->close(); delete g_encoder; g_encoder = nullptr; }

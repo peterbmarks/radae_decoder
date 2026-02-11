@@ -255,7 +255,7 @@ bool RadaeDecoder::open(const std::string& input_hw_id,
     /* ── ALSA playback (mono, prefer 16 kHz) ────────────────────────── */
     rate_out_ = RADE_FS_SPEECH;
     if (!open_alsa(&pcm_out_, output_hw_id, SND_PCM_STREAM_PLAYBACK,
-                   &rate_out_, 512, 4096)) {
+                   &rate_out_, 512, 8192)) {
         snd_pcm_close(pcm_in_); pcm_in_ = nullptr;
         return false;
     }
@@ -325,7 +325,7 @@ bool RadaeDecoder::open_file(const std::string& wav_path,
     /* ── ALSA playback only (no capture) ────────────────────────── */
     rate_out_ = RADE_FS_SPEECH;
     if (!open_alsa(&pcm_out_, output_hw_id, SND_PCM_STREAM_PLAYBACK,
-                   &rate_out_, 512, 4096))
+                   &rate_out_, 512, 8192))
         return false;
 
     /* ── RADE receiver ──────────────────────────────────────────── */
@@ -516,6 +516,7 @@ void RadaeDecoder::processing_loop()
     float  resamp_out_prev = 0.0f;
 
     bool was_synced = false;
+    bool output_primed = false;
 
     while (running_.load(std::memory_order_relaxed)) {
 
@@ -631,6 +632,7 @@ void RadaeDecoder::processing_loop()
             fargan_init(static_cast<FARGANState*>(fargan_));
             fargan_ready_ = false;
             warmup_count_ = 0;
+            output_primed = false;
         }
         was_synced = now_synced;
 
@@ -661,6 +663,28 @@ void RadaeDecoder::processing_loop()
                         fargan_cont(static_cast<FARGANState*>(fargan_),
                                     zeros, packed);
                         fargan_ready_ = true;
+
+                        /* pre-fill output buffer with silence so it has
+                           enough headroom for the bursty write pattern */
+                        if (!output_primed) {
+                            int prefill = 2 * 12 * LPCNET_FRAME_SIZE
+                                * static_cast<int>(rate_out_) / RADE_FS_SPEECH;
+                            std::vector<int16_t> silence(static_cast<size_t>(prefill), 0);
+                            int rem = prefill;
+                            int16_t* p = silence.data();
+                            while (rem > 0) {
+                                snd_pcm_sframes_t w = snd_pcm_writei(
+                                    pcm_out_, p, static_cast<snd_pcm_uframes_t>(rem));
+                                if (w < 0) {
+                                    w = snd_pcm_recover(pcm_out_, static_cast<int>(w), 1);
+                                    if (w < 0) break;
+                                    continue;
+                                }
+                                rem -= static_cast<int>(w);
+                                p   += w;
+                            }
+                            output_primed = true;
+                        }
                     }
                     continue;   /* warmup frames not synthesised */
                 }

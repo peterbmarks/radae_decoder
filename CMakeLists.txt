@@ -71,6 +71,7 @@ add_executable(radae_decoder
     src/audio_input.cpp
     src/meter_widget.cpp
     src/rade_decoder.cpp
+    src/rade_encoder.cpp
     src/spectrum_widget.cpp
     src/waterfall_widget.cpp
 )

@@ -8,12 +8,15 @@
 #include "audio_input.h"
 #include "meter_widget.h"
 #include "rade_decoder.h"
+#include "rade_encoder.h"
 #include "spectrum_widget.h"
 #include "waterfall_widget.h"
 
 /* ── globals (single-window app) ────────────────────────────────────────── */
 
 static RadaeDecoder*            g_decoder            = nullptr;
+static RadaeEncoder*            g_encoder            = nullptr;
+static GtkWidget*               g_tx_switch          = nullptr;   // TX mode toggle
 static std::vector<AudioDevice> g_input_devices;
 static std::vector<AudioDevice> g_output_devices;
 static GtkWidget*               g_input_combo        = nullptr;   // input device selector
@@ -155,9 +158,10 @@ static void set_btn_state(bool capturing)
 
 /* ── decoder control ───────────────────────────────────────────────────── */
 
-static void stop_decoder()
+static void stop_all()
 {
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); }
+    if (g_encoder) { g_encoder->stop(); g_encoder->close(); }
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
     if (g_meter_in)  meter_widget_update(g_meter_in, 0.f);
     if (g_meter_out) meter_widget_update(g_meter_out, 0.f);
@@ -169,11 +173,22 @@ static void stop_decoder()
 /* timer tick – update meter + status at ~30 fps */
 static gboolean on_meter_tick(gpointer /*data*/)
 {
+    /* ── TX mode ─────────────────────────────────────────────────────── */
+    if (g_encoder && g_encoder->is_running()) {
+        if (g_meter_in)
+            meter_widget_update(g_meter_in, g_encoder->get_input_level());
+        if (g_meter_out)
+            meter_widget_update(g_meter_out, g_encoder->get_output_level());
+        set_status("Transmitting\xe2\x80\xa6");
+        return TRUE;
+    }
+
+    /* ── RX mode ─────────────────────────────────────────────────────── */
     if (!g_decoder) return TRUE;
 
     if (!g_decoder->is_running()) {
         /* decoder stopped itself (e.g. file playback finished) */
-        stop_decoder();
+        stop_all();
         set_status("Playback finished.");
         return FALSE;
     }
@@ -216,7 +231,7 @@ static void start_decoder(int in_idx, int out_idx)
     if (in_idx  < 0 || in_idx  >= static_cast<int>(g_input_devices.size()))  return;
     if (out_idx < 0 || out_idx >= static_cast<int>(g_output_devices.size())) return;
 
-    stop_decoder();
+    stop_all();
 
     if (!g_decoder) g_decoder = new RadaeDecoder();
 
@@ -231,6 +246,28 @@ static void start_decoder(int in_idx, int out_idx)
     set_btn_state(true);
     set_status("Searching for signal\xe2\x80\xa6");
     g_timer = g_timeout_add(33, on_meter_tick, nullptr);   // ~30 fps
+}
+
+static void start_encoder(int mic_idx, int radio_idx)
+{
+    if (mic_idx   < 0 || mic_idx   >= static_cast<int>(g_tx_input_devices.size()))  return;
+    if (radio_idx < 0 || radio_idx >= static_cast<int>(g_tx_output_devices.size())) return;
+
+    stop_all();
+
+    if (!g_encoder) g_encoder = new RadaeEncoder();
+
+    if (!g_encoder->open(g_tx_input_devices[mic_idx].hw_id,
+                         g_tx_output_devices[radio_idx].hw_id)) {
+        set_status("Failed to open TX audio devices.");
+        set_btn_state(false);
+        return;
+    }
+
+    g_encoder->start();
+    set_btn_state(true);
+    set_status("Transmitting\xe2\x80\xa6");
+    g_timer = g_timeout_add(33, on_meter_tick, nullptr);
 }
 
 /* ── signal handlers ────────────────────────────────────────────────────── */
@@ -264,12 +301,59 @@ static void on_tx_combo_changed(GtkComboBox* /*combo*/, gpointer /*data*/)
     save_config();
 }
 
+/* TX switch toggled: stop current mode and start the new one */
+static gboolean on_tx_switch_changed(GtkSwitch* sw, gboolean state, gpointer /*data*/)
+{
+    gtk_switch_set_state(sw, state);
+
+    bool was_running = (g_decoder && g_decoder->is_running()) ||
+                       (g_encoder && g_encoder->is_running());
+    if (!was_running) return TRUE;
+
+    stop_all();
+
+    if (state) {
+        /* switched to TX */
+        int mic_idx   = gtk_combo_box_get_active(GTK_COMBO_BOX(g_tx_input_combo));
+        int radio_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_tx_output_combo));
+        if (mic_idx >= 0 && radio_idx >= 0)
+            start_encoder(mic_idx, radio_idx);
+        else
+            set_status("Select Microphone In and Radio Out in Settings first.");
+    } else {
+        /* switched to RX */
+        int in_idx  = gtk_combo_box_get_active(GTK_COMBO_BOX(g_input_combo));
+        int out_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo));
+        if (in_idx >= 0 && out_idx >= 0)
+            start_decoder(in_idx, out_idx);
+        else
+            set_status("Select both input and output devices first.");
+    }
+
+    return TRUE;
+}
+
 /* start / stop toggle */
 static void on_start_stop(GtkButton* /*btn*/, gpointer /*data*/)
 {
-    if (g_decoder && g_decoder->is_running()) {
-        stop_decoder();
+    bool running = (g_decoder && g_decoder->is_running()) ||
+                   (g_encoder && g_encoder->is_running());
+    if (running) {
+        stop_all();
         set_status("Stopped.");
+        return;
+    }
+
+    bool tx_mode = g_tx_switch && gtk_switch_get_active(GTK_SWITCH(g_tx_switch));
+
+    if (tx_mode) {
+        int mic_idx   = gtk_combo_box_get_active(GTK_COMBO_BOX(g_tx_input_combo));
+        int radio_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_tx_output_combo));
+        if (mic_idx < 0 || radio_idx < 0) {
+            set_status("Select Microphone In and Radio Out in Settings first.");
+            return;
+        }
+        start_encoder(mic_idx, radio_idx);
     } else {
         int in_idx  = gtk_combo_box_get_active(GTK_COMBO_BOX(g_input_combo));
         int out_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo));
@@ -284,7 +368,9 @@ static void on_start_stop(GtkButton* /*btn*/, gpointer /*data*/)
 /* refresh the device lists */
 static void on_refresh(GtkButton* /*btn*/, gpointer /*data*/)
 {
-    if (g_decoder && g_decoder->is_running()) stop_decoder();
+    bool running = (g_decoder && g_decoder->is_running()) ||
+                   (g_encoder && g_encoder->is_running());
+    if (running) stop_all();
 
     g_input_devices    = AudioInput::enumerate_devices();
     g_output_devices   = AudioInput::enumerate_playback_devices();
@@ -329,6 +415,7 @@ static void on_window_destroy(GtkWidget* /*w*/, gpointer /*data*/)
 {
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); delete g_decoder; g_decoder = nullptr; }
+    if (g_encoder) { g_encoder->stop(); g_encoder->close(); delete g_encoder; g_encoder = nullptr; }
 }
 
 /* ── file playback ─────────────────────────────────────────────────────── */
@@ -337,7 +424,7 @@ static void start_decoder_file(const std::string& wav_path, int out_idx)
 {
     if (out_idx < 0 || out_idx >= static_cast<int>(g_output_devices.size())) return;
 
-    stop_decoder();
+    stop_all();
 
     if (!g_decoder) g_decoder = new RadaeDecoder();
 
@@ -601,12 +688,25 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     gtk_container_set_border_width(GTK_CONTAINER(vbox), 12);
     gtk_box_pack_start(GTK_BOX(outer_vbox), vbox, TRUE, TRUE, 0);
 
-    /* ── start / stop button ───────────────────────────────────────── */
+    /* ── start / stop button + TX switch (side by side) ──────────── */
+    GtkWidget* btn_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+
     g_btn = gtk_button_new_with_label("Start");
     gtk_widget_get_style_context(g_btn);                        // ensure context exists
     gtk_style_context_add_class(gtk_widget_get_style_context(g_btn), "start-btn");
     g_signal_connect(g_btn, "clicked", G_CALLBACK(on_start_stop), NULL);
-    gtk_box_pack_start(GTK_BOX(vbox), g_btn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(btn_hbox), g_btn, TRUE, TRUE, 0);
+
+    GtkWidget* tx_label = gtk_label_new("TX");
+    gtk_box_pack_start(GTK_BOX(btn_hbox), tx_label, FALSE, FALSE, 0);
+
+    g_tx_switch = gtk_switch_new();
+    gtk_widget_set_tooltip_text(g_tx_switch, "Toggle transmit mode");
+    gtk_widget_set_valign(g_tx_switch, GTK_ALIGN_CENTER);
+    g_signal_connect(g_tx_switch, "state-set", G_CALLBACK(on_tx_switch_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(btn_hbox), g_tx_switch, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(vbox), btn_hbox, FALSE, FALSE, 0);
 
     /* ── input meter + spectrum + output meter (side by side) ────────── */
     GtkWidget* meter_spec_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);

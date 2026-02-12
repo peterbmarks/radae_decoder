@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------*\
 
-  rade_decode.c
+  webrx_rade_decode.c
 
   This is for OpenWebRX and similar.
   
@@ -101,7 +101,7 @@ static RADE_COMP hilbert_one(float sample) {
 
 static void usage(void) {
     fprintf(stderr,
-            "usage: rade_decode [options]\n\n"
+            "usage: webrx_rade_decode [options]\n\n"
             "  Reads 16-bit signed mono audio at %d Hz from stdin,\n"
             "  decodes RADAE, and writes 16-bit signed mono audio\n"
             "  at %d Hz to stdout.\n\n"

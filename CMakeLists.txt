@@ -68,6 +68,9 @@ set_target_properties(rade PROPERTIES
 # add_executable(rade_modulate src/tools/rade_modulate.c)
 # target_link_libraries(rade_modulate rade opus m)
 
+add_executable(rade_decode src/tools/rade_decode.c)
+target_link_libraries(rade_decode rade opus m)
+
 # ── GUI application ──────────────────────────────────────────────────────────
 add_executable(radae_decoder
     src/main.cpp

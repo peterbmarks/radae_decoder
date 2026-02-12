@@ -2,6 +2,8 @@
 
   rade_decode.c
 
+  This is for OpenWebRX and similar.
+  
   RADAE streaming decoder.  Reads 16-bit signed mono audio at 8 kHz from
   stdin, decodes RADAE, and writes 16-bit signed mono audio at 8 kHz to
   stdout.

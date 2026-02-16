@@ -13,7 +13,7 @@ find_package(Threads    REQUIRED)
 set(ENV{PKG_CONFIG_PATH} "/usr/lib/x86_64-linux-gnu/pkgconfig")
 
 pkg_check_modules(GTK    REQUIRED gtk+-3.0)
-pkg_check_modules(ALSA   REQUIRED alsa)
+pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
 pkg_check_modules(HAMLIB REQUIRED hamlib)
 
 # ── Opus (with FARGAN/LPCNet support) ────────────────────────────────────────
@@ -84,7 +84,7 @@ add_executable(radae_decoder
 
 target_include_directories(radae_decoder PRIVATE
     ${GTK_INCLUDE_DIRS}
-    ${ALSA_INCLUDE_DIRS}
+    ${PORTAUDIO_INCLUDE_DIRS}
     ${HAMLIB_INCLUDE_DIRS}
     ${OPUS_SOURCE_DIR}/dnn
     ${OPUS_SOURCE_DIR}/celt
@@ -97,7 +97,7 @@ target_link_libraries(radae_decoder
     opus
     m
     ${GTK_LIBRARIES}
-    ${ALSA_LIBRARIES}
+    ${PORTAUDIO_LIBRARIES}
     ${HAMLIB_LIBRARIES}
     Threads::Threads
 )

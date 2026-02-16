@@ -4,13 +4,13 @@
 #include <vector>
 #include <atomic>
 #include <thread>
-#include <alsa/asoundlib.h>
+#include <portaudio.h>
 
 /* ── public types ───────────────────────────────────────────────────────── */
 
 struct AudioDevice {
-    std::string name;   // human-readable  e.g. "Built-in Audio — Microphone"
-    std::string hw_id;  // ALSA identifier e.g. "hw:0,0"
+    std::string name;       // human-readable  e.g. "Built-in Audio — Microphone"
+    int         device_idx; // PortAudio device index
 };
 
 /* ── AudioInput ─────────────────────────────────────────────────────────── */
@@ -25,7 +25,7 @@ public:
     static std::vector<AudioDevice> enumerate_playback_devices();  // playback devices
 
     /* lifecycle ------------------------------------------------------------ */
-    bool open(const std::string& hw_id);   // configure + prepare
+    bool open(int device_idx);             // configure + prepare
     void close();                          // stop (if running) + close handle
     void start();                          // launch capture thread
     void stop();                           // join capture thread
@@ -39,10 +39,10 @@ public:
 private:
     void capture_loop();
 
-    snd_pcm_t*         pcm_         = nullptr;
-    int                channels_    = 0;
+    PaStream*          stream_   = nullptr;
+    int                channels_ = 0;
     std::thread        thread_;
-    std::atomic<bool>  running_     {false};
+    std::atomic<bool>  running_  {false};
     std::atomic<float> level_left_  {0.0f};
     std::atomic<float> level_right_ {0.0f};
 };

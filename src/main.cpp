@@ -1,5 +1,6 @@
 #include <gtk/gtk.h>
 #include <hamlib/rig.h>
+#include <portaudio.h>
 #include <vector>
 #include <string>
 #include <cstdio>
@@ -270,8 +271,8 @@ static void start_decoder(int in_idx, int out_idx)
 
     if (!g_decoder) g_decoder = new RadaeDecoder();
 
-    if (!g_decoder->open(g_input_devices[in_idx].hw_id,
-                         g_output_devices[out_idx].hw_id)) {
+    if (!g_decoder->open(g_input_devices[in_idx].device_idx,
+                         g_output_devices[out_idx].device_idx)) {
         set_status("Failed to open audio devices.");
         set_btn_state(false);
         return;
@@ -292,8 +293,8 @@ static void start_encoder(int mic_idx, int radio_idx)
 
     if (!g_encoder) g_encoder = new RadaeEncoder();
 
-    if (!g_encoder->open(g_tx_input_devices[mic_idx].hw_id,
-                         g_tx_output_devices[radio_idx].hw_id)) {
+    if (!g_encoder->open(g_tx_input_devices[mic_idx].device_idx,
+                         g_tx_output_devices[radio_idx].device_idx)) {
         set_status("Failed to open TX audio devices.");
         set_btn_state(false);
         return;
@@ -465,7 +466,7 @@ static void start_decoder_file(const std::string& wav_path, int out_idx)
     if (!g_decoder) g_decoder = new RadaeDecoder();
 
     if (!g_decoder->open_file(wav_path,
-                               g_output_devices[static_cast<size_t>(out_idx)].hw_id)) {
+                               g_output_devices[static_cast<size_t>(out_idx)].device_idx)) {
         set_status("Failed to open WAV file or audio output.");
         set_btn_state(false);
         return;
@@ -894,6 +895,8 @@ static void activate(GtkApplication* app, gpointer /*data*/)
 
 int main(int argc, char* argv[])
 {
+    Pa_Initialize();
+
     GtkApplication* app = gtk_application_new("org.simpledecoder.RADAEDecoder",
                                               G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
@@ -901,5 +904,6 @@ int main(int argc, char* argv[])
     int rc = g_application_run(G_APPLICATION(app), argc, argv);
 
     g_object_unref(app);
+    Pa_Terminate();
     return rc;
 }

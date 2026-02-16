@@ -5,7 +5,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
-#include <alsa/asoundlib.h>
+#include <portaudio.h>
 
 /* Forward declaration — avoids exposing RADE/FARGAN C headers in this header */
 struct rade;
@@ -13,7 +13,7 @@ struct rade;
 /* ── RadaeDecoder ──────────────────────────────────────────────────────────
  *
  *  Real-time RADAE decoder pipeline:
- *    ALSA capture → resample → Hilbert → RADE Rx → FARGAN → resample → ALSA playback
+ *    PortAudio capture → resample → Hilbert → RADE Rx → FARGAN → resample → PortAudio playback
  *
  *  All processing runs on a dedicated thread.  Status is exposed via atomics.
  * ──────────────────────────────────────────────────────────────────────── */
@@ -24,8 +24,8 @@ public:
     ~RadaeDecoder();
 
     /* lifecycle -------------------------------------------------------------- */
-    bool open(const std::string& input_hw_id, const std::string& output_hw_id);
-    bool open_file(const std::string& wav_path, const std::string& output_hw_id);
+    bool open(int input_device, int output_device);
+    bool open_file(const std::string& wav_path, int output_device);
     void close();
     void start();
     void stop();
@@ -50,11 +50,11 @@ public:
 private:
     void processing_loop();
 
-    /* ── ALSA handles ─────────────────────────────────────────────────────── */
-    snd_pcm_t*   pcm_in_   = nullptr;
-    snd_pcm_t*   pcm_out_  = nullptr;
-    unsigned int  rate_in_  = 0;   // negotiated capture rate
-    unsigned int  rate_out_ = 0;   // negotiated playback rate
+    /* ── PortAudio handles ────────────────────────────────────────────────── */
+    PaStream*    pa_in_   = nullptr;
+    PaStream*    pa_out_  = nullptr;
+    unsigned int rate_in_  = 0;   // negotiated capture rate
+    unsigned int rate_out_ = 0;   // negotiated playback rate
 
     /* ── RADE receiver (opaque) ───────────────────────────────────────────── */
     struct rade*  rade_     = nullptr;

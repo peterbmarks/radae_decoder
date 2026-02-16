@@ -3,7 +3,7 @@
 #include <string>
 #include <atomic>
 #include <thread>
-#include <alsa/asoundlib.h>
+#include <portaudio.h>
 
 /* Forward declarations — avoids exposing C headers in this header */
 struct rade;
@@ -12,7 +12,7 @@ struct LPCNetEncState;
 /* ── RadaeEncoder ──────────────────────────────────────────────────────────
  *
  *  Real-time RADAE encoder pipeline:
- *    ALSA capture (mic 16 kHz) → LPCNet features → RADE Tx → real → ALSA playback (radio 8 kHz)
+ *    PortAudio capture (mic 16 kHz) → LPCNet features → RADE Tx → real → PortAudio playback (radio 8 kHz)
  *
  *  All processing runs on a dedicated thread.  Status is exposed via atomics.
  * ──────────────────────────────────────────────────────────────────────── */
@@ -23,7 +23,7 @@ public:
     ~RadaeEncoder();
 
     /* lifecycle -------------------------------------------------------------- */
-    bool open(const std::string& mic_hw_id, const std::string& radio_hw_id);
+    bool open(int mic_device, int radio_device);
     void close();
     void start();
     void stop();
@@ -42,11 +42,11 @@ public:
 private:
     void processing_loop();
 
-    /* ── ALSA handles ─────────────────────────────────────────────────────── */
-    snd_pcm_t*   pcm_in_   = nullptr;    // capture (mic)
-    snd_pcm_t*   pcm_out_  = nullptr;    // playback (radio)
-    unsigned int  rate_in_  = 0;          // negotiated capture rate
-    unsigned int  rate_out_ = 0;          // negotiated playback rate
+    /* ── PortAudio handles ────────────────────────────────────────────────── */
+    PaStream*    pa_in_   = nullptr;    // capture (mic)
+    PaStream*    pa_out_  = nullptr;    // playback (radio)
+    unsigned int rate_in_  = 0;          // negotiated capture rate
+    unsigned int rate_out_ = 0;          // negotiated playback rate
 
     /* ── RADE transmitter (opaque) ────────────────────────────────────────── */
     struct rade*        rade_    = nullptr;

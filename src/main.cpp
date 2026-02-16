@@ -640,7 +640,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
 
     /* ── window ────────────────────────────────────────────────────── */
     GtkWidget* window = gtk_application_window_new(app);
-    gtk_window_set_title         (GTK_WINDOW(window), "RADAE Decoder");
+    gtk_window_set_title         (GTK_WINDOW(window), "RADAE GUI");
     gtk_window_set_default_size  (GTK_WINDOW(window), 500, 400);
     gtk_window_set_resizable     (GTK_WINDOW(window), TRUE);
     g_signal_connect(window, "destroy", G_CALLBACK(on_window_destroy), NULL);

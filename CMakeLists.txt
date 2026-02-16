@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(RADAEPlay LANGUAGES C CXX)
+project(RADAE_Gui LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -72,7 +72,7 @@ add_executable(webrx_rade_decode src/tools/webrx_rade_decode.c)
 target_link_libraries(webrx_rade_decode rade opus m)
 
 # ── GUI application ──────────────────────────────────────────────────────────
-add_executable(radae_decoder
+add_executable(RADAE_Gui
     src/main.cpp
     src/audio_input.cpp
     src/meter_widget.cpp
@@ -82,7 +82,7 @@ add_executable(radae_decoder
     src/waterfall_widget.cpp
 )
 
-target_include_directories(radae_decoder PRIVATE
+target_include_directories(RADAE_Gui PRIVATE
     ${GTK_INCLUDE_DIRS}
     ${PULSE_INCLUDE_DIRS}
     ${HAMLIB_INCLUDE_DIRS}
@@ -92,7 +92,7 @@ target_include_directories(radae_decoder PRIVATE
     ${OPUS_SOURCE_DIR}
 )
 
-target_link_libraries(radae_decoder
+target_link_libraries(RADAE_Gui
     rade
     opus
     m
@@ -102,7 +102,7 @@ target_link_libraries(radae_decoder
     Threads::Threads
 )
 
-target_compile_options(radae_decoder PRIVATE
+target_compile_options(RADAE_Gui PRIVATE
     ${GTK_CFLAGS_OTHER}
     -Wall -Wextra -Wpedantic -Wno-dev
 )

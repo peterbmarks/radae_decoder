@@ -1,4 +1,4 @@
-# RADAE Decoder
+# RADAE_Gui
 
 Originally from: https://github.com/peterbmarks/radae_decoder
 

@@ -130,6 +130,11 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
     resamp_out_frac_ = 0.0;
     resamp_out_prev_ = 0.0f;
 
+    /* ── TX output bandpass filter (700–2300 Hz) ─────────────────────── */
+    int n_eoo = rade_n_tx_eoo_out(rade_);
+    rade_bpf_init(&bpf_, RADE_BPF_NTAP, static_cast<float>(RADE_FS),
+                  1600.0f, 1500.0f, n_eoo);
+
     return true;
 }
 
@@ -334,6 +339,8 @@ void RadaeEncoder::processing_loop()
             /* ── full modem frame: encode and output ─────────────────────── */
             if (feat_count >= frames_per_modem) {
                 int n_out = rade_tx(rade_, tx_out.data(), features.data());
+                if (bpf_enabled_.load(std::memory_order_relaxed))
+                    rade_bpf_process(&bpf_, tx_out.data(), tx_out.data(), n_out);
                 write_real_to_pulse(pa_out_, tx_out.data(), n_out,
                                     RADE_FS, rate_out_,
                                     resamp_out_frac_, resamp_out_prev_,
@@ -347,6 +354,8 @@ void RadaeEncoder::processing_loop()
     /* ── send end-of-over frame ──────────────────────────────────────── */
     if (rade_ && pa_out_) {
         int n_out = rade_tx_eoo(rade_, eoo_out.data());
+        if (bpf_enabled_.load(std::memory_order_relaxed))
+            rade_bpf_process(&bpf_, eoo_out.data(), eoo_out.data(), n_out);
         write_real_to_pulse(pa_out_, eoo_out.data(), n_out,
                             RADE_FS, rate_out_,
                             resamp_out_frac_, resamp_out_prev_,

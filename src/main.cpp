@@ -18,6 +18,7 @@
 static RadaeDecoder*            g_decoder            = nullptr;
 static RadaeEncoder*            g_encoder            = nullptr;
 static GtkWidget*               g_tx_switch          = nullptr;   // TX mode toggle
+static GtkWidget*               g_bpf_switch         = nullptr;   // TX BPF toggle
 static std::vector<AudioDevice> g_input_devices;
 static std::vector<AudioDevice> g_output_devices;
 static GtkWidget*               g_input_combo        = nullptr;   // input device selector
@@ -78,6 +79,7 @@ static void save_config()
         f << "tx_output=" << tx_out_name << '\n';
         f << "tx_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_tx_slider))) << '\n';
         f << "mic_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_mic_slider))) << '\n';
+        f << "bpf_enabled=" << (g_bpf_switch && gtk_switch_get_active(GTK_SWITCH(g_bpf_switch)) ? 1 : 0) << '\n';
     }
 }
 
@@ -90,6 +92,7 @@ static bool restore_config()
     std::string saved_in, saved_out, saved_tx_in, saved_tx_out;
     int saved_tx_level = -1;
     int saved_mic_level = -1;
+    int saved_bpf_enabled = -1;
     std::string line;
     while (std::getline(f, line)) {
         if (line.compare(0, 6, "input=") == 0)
@@ -104,6 +107,8 @@ static bool restore_config()
             saved_tx_level = std::stoi(line.substr(9));
         else if (line.compare(0, 10, "mic_level=") == 0)
             saved_mic_level = std::stoi(line.substr(10));
+        else if (line.compare(0, 12, "bpf_enabled=") == 0)
+            saved_bpf_enabled = std::stoi(line.substr(12));
     }
 
     if (saved_in.empty() && saved_out.empty()) return false;
@@ -147,6 +152,8 @@ static bool restore_config()
         gtk_range_set_value(GTK_RANGE(g_tx_slider), saved_tx_level);
     if (saved_mic_level >= 0 && saved_mic_level <= 100)
         gtk_range_set_value(GTK_RANGE(g_mic_slider), saved_mic_level);
+    if (saved_bpf_enabled >= 0 && g_bpf_switch)
+        gtk_switch_set_active(GTK_SWITCH(g_bpf_switch), saved_bpf_enabled != 0);
 
     return (in_idx >= 0 && out_idx >= 0);
 }
@@ -299,6 +306,8 @@ static void start_encoder(int mic_idx, int radio_idx)
         return;
     }
 
+    if (g_bpf_switch)
+        g_encoder->set_bpf_enabled(gtk_switch_get_active(GTK_SWITCH(g_bpf_switch)));
     g_encoder->start();
     set_btn_state(true);
     set_status("Transmitting\xe2\x80\xa6");
@@ -365,6 +374,15 @@ static gboolean on_tx_switch_changed(GtkSwitch* sw, gboolean state, gpointer /*d
             set_status("Select both input and output devices first.");
     }
 
+    return TRUE;
+}
+
+/* BPF switch toggled */
+static gboolean on_bpf_switch_changed(GtkSwitch* sw, gboolean state, gpointer /*data*/)
+{
+    gtk_switch_set_state(sw, state);
+    if (g_encoder)
+        g_encoder->set_bpf_enabled(state);
     return TRUE;
 }
 
@@ -827,6 +845,18 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     gtk_widget_set_valign(g_tx_switch, GTK_ALIGN_CENTER);
     g_signal_connect(g_tx_switch, "state-set", G_CALLBACK(on_tx_switch_changed), NULL);
     gtk_box_pack_start(GTK_BOX(btn_hbox), g_tx_switch, FALSE, FALSE, 0);
+
+    /* spacer between TX and BPF switches */
+    gtk_box_pack_start(GTK_BOX(btn_hbox), gtk_label_new(""), FALSE, FALSE, 4);
+
+    GtkWidget* bpf_label = gtk_label_new("BPF");
+    gtk_box_pack_start(GTK_BOX(btn_hbox), bpf_label, FALSE, FALSE, 0);
+
+    g_bpf_switch = gtk_switch_new();
+    gtk_widget_set_tooltip_text(g_bpf_switch, "700\xe2\x80\x93" "2300 Hz bandpass filter on TX output");
+    gtk_widget_set_valign(g_bpf_switch, GTK_ALIGN_CENTER);
+    g_signal_connect(g_bpf_switch, "state-set", G_CALLBACK(on_bpf_switch_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(btn_hbox), g_bpf_switch, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(vbox), btn_hbox, FALSE, FALSE, 0);
 

@@ -10,6 +10,10 @@
 struct rade;
 struct LPCNetEncState;
 
+extern "C" {
+#include "rade_bpf.h"
+}
+
 /* ── RadaeEncoder ──────────────────────────────────────────────────────────
  *
  *  Real-time RADAE encoder pipeline:
@@ -40,6 +44,10 @@ public:
     void  set_mic_gain(float g)  { mic_gain_.store(g, std::memory_order_relaxed); }
     float get_mic_gain() const   { return mic_gain_.load(std::memory_order_relaxed); }
 
+    /* TX output bandpass filter (700–2300 Hz) */
+    void set_bpf_enabled(bool en) { bpf_enabled_.store(en, std::memory_order_relaxed); }
+    bool get_bpf_enabled() const  { return bpf_enabled_.load(std::memory_order_relaxed); }
+
 private:
     void processing_loop();
 
@@ -68,4 +76,8 @@ private:
     std::atomic<float> output_level_ {0.0f};
     std::atomic<float> tx_scale_     {16384.0f};
     std::atomic<float> mic_gain_     {1.0f};
+    std::atomic<bool>  bpf_enabled_  {false};
+
+    /* ── TX output bandpass filter ───────────────────────────────────────── */
+    rade_bpf           bpf_;
 };

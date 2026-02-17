@@ -130,11 +130,14 @@ The audio backend is selected at configure time via `-DAUDIO_BACKEND=`:
 | `PORTAUDIO` | macOS | `portaudio19-dev` |
 
 ```bash
-# Linux default (ALSA)
+# Linux default (PULSE)
 cmake -DCMAKE_BUILD_TYPE=Release ..
 
 # Explicitly choose PulseAudio on Linux
 cmake -DCMAKE_BUILD_TYPE=Release -DAUDIO_BACKEND=PULSE ..
+
+# Explicitly choose ALSA on Linux
+cmake -DCMAKE_BUILD_TYPE=Release -DAUDIO_BACKEND=ALSA ..
 
 # PortAudio (macOS default, also available on Linux)
 cmake -DCMAKE_BUILD_TYPE=Release -DAUDIO_BACKEND=PORTAUDIO ..
@@ -142,8 +145,11 @@ cmake -DCMAKE_BUILD_TYPE=Release -DAUDIO_BACKEND=PORTAUDIO ..
 
 The selected backend is printed during configuration:
 ```
--- Audio backend: ALSA
+-- Audio backend: PULSE
 ```
+
+Note when using ALSA you should choose devices with plughw: prefix so they can do their own sample
+rate conversion.
 
 Note: once a build directory has been configured, CMake caches `AUDIO_BACKEND`. Delete `CMakeCache.txt` or the build directory before switching backends.
 

@@ -11,20 +11,38 @@ find_package(Threads    REQUIRED)
 
 pkg_check_modules(GTK       REQUIRED gtk+-3.0)
 
-# ── audio backend: PortAudio on macOS, PulseAudio on Linux ───────────────────
+# ── audio backend selection ───────────────────────────────────────────────────
+# Default: PORTAUDIO on macOS, ALSA on Linux.
+# Override with -DAUDIO_BACKEND=ALSA|PULSE|PORTAUDIO at configure time.
 if(APPLE)
+    set(AUDIO_BACKEND "PORTAUDIO" CACHE STRING "Audio backend (PORTAUDIO)")
+else()
+    set(AUDIO_BACKEND "PULSE" CACHE STRING "Audio backend (ALSA, PULSE, PORTAUDIO)")
+endif()
+
+if(AUDIO_BACKEND STREQUAL "PORTAUDIO")
     pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
     set(AUDIO_BACKEND_SRC    src/audio_stream_portaudio.cpp)
     set(AUDIO_BACKEND_LIBS   ${PORTAUDIO_LIBRARIES})
     set(AUDIO_BACKEND_INCS   ${PORTAUDIO_INCLUDE_DIRS})
     link_directories(${PORTAUDIO_LIBRARY_DIRS})
-else()
+elseif(AUDIO_BACKEND STREQUAL "PULSE")
     pkg_check_modules(PULSE REQUIRED libpulse libpulse-simple)
     set(AUDIO_BACKEND_SRC    src/audio_stream_pulse.cpp)
     set(AUDIO_BACKEND_LIBS   ${PULSE_LIBRARIES})
     set(AUDIO_BACKEND_INCS   ${PULSE_INCLUDE_DIRS})
     link_directories(${PULSE_LIBRARY_DIRS})
+elseif(AUDIO_BACKEND STREQUAL "ALSA")
+    pkg_check_modules(ALSA REQUIRED alsa)
+    set(AUDIO_BACKEND_SRC    src/audio_stream_alsa.cpp)
+    set(AUDIO_BACKEND_LIBS   ${ALSA_LIBRARIES})
+    set(AUDIO_BACKEND_INCS   ${ALSA_INCLUDE_DIRS})
+    link_directories(${ALSA_LIBRARY_DIRS})
+else()
+    message(FATAL_ERROR "Unknown AUDIO_BACKEND '${AUDIO_BACKEND}'. Choose ALSA, PULSE, or PORTAUDIO.")
 endif()
+
+message(STATUS "Audio backend: ${AUDIO_BACKEND}")
 
 link_directories(${GTK_LIBRARY_DIRS})
 

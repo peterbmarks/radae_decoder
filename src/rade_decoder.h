@@ -5,8 +5,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
-#include <pulse/simple.h>
-#include <pulse/error.h>
+#include <portaudio.h>
 
 /* Forward declaration — avoids exposing RADE/FARGAN C headers in this header */
 struct rade;
@@ -14,7 +13,7 @@ struct rade;
 /* ── RadaeDecoder ──────────────────────────────────────────────────────────
  *
  *  Real-time RADAE decoder pipeline:
- *    PulseAudio capture → resample → Hilbert → RADE Rx → FARGAN → resample → PulseAudio playback
+ *    PortAudio capture → resample → Hilbert → RADE Rx → FARGAN → resample → PortAudio playback
  *
  *  All processing runs on a dedicated thread.  Status is exposed via atomics.
  * ──────────────────────────────────────────────────────────────────────── */
@@ -51,9 +50,9 @@ public:
 private:
     void processing_loop();
 
-    /* ── PulseAudio handles ───────────────────────────────────────────────── */
-    pa_simple*   pa_in_   = nullptr;
-    pa_simple*   pa_out_  = nullptr;
+    /* ── PortAudio handles ───────────────────────────────────────────────── */
+    PaStream*    pa_in_   = nullptr;
+    PaStream*    pa_out_  = nullptr;
     unsigned int rate_in_  = 0;   // capture rate
     unsigned int rate_out_ = 0;   // playback rate
 

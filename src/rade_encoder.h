@@ -4,8 +4,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
-#include <pulse/simple.h>
-#include <pulse/error.h>
+#include <portaudio.h>
 
 /* Forward declarations — avoids exposing C headers in this header */
 struct rade;
@@ -18,7 +17,7 @@ extern "C" {
 /* ── RadaeEncoder ──────────────────────────────────────────────────────────
  *
  *  Real-time RADAE encoder pipeline:
- *    PulseAudio capture (mic 16 kHz) → LPCNet features → RADE Tx → real → PulseAudio playback (radio 8 kHz)
+ *    PortAudio capture (mic 16 kHz) → LPCNet features → RADE Tx → real → PortAudio playback (radio 8 kHz)
  *
  *  All processing runs on a dedicated thread.  Status is exposed via atomics.
  * ──────────────────────────────────────────────────────────────────────── */
@@ -59,9 +58,9 @@ public:
 private:
     void processing_loop();
 
-    /* ── PulseAudio handles ───────────────────────────────────────────────── */
-    pa_simple*   pa_in_   = nullptr;    // capture (mic)
-    pa_simple*   pa_out_  = nullptr;    // playback (radio)
+    /* ── PortAudio handles ───────────────────────────────────────────────── */
+    PaStream*    pa_in_   = nullptr;    // capture (mic)
+    PaStream*    pa_out_  = nullptr;    // playback (radio)
     unsigned int rate_in_  = 0;          // capture rate
     unsigned int rate_out_ = 0;          // playback rate
 

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(brew list:*)",
+      "Bash(pkg-config:*)",
+      "Bash(cmake:*)",
+      "Bash(./radae_headless:*)"
+    ]
+  }
+}

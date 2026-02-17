@@ -4,14 +4,13 @@
 #include <vector>
 #include <atomic>
 #include <thread>
-#include <pulse/simple.h>
-#include <pulse/error.h>
+#include <portaudio.h>
 
 /* ── public types ───────────────────────────────────────────────────────── */
 
 struct AudioDevice {
-    std::string name;      // human-readable  e.g. "Built-in Audio Analog Stereo"
-    std::string hw_id;     // PulseAudio source/sink name e.g. "alsa_input.pci-..."
+    std::string name;      // human-readable  e.g. "Built-in Microphone"
+    std::string hw_id;     // PortAudio device index as string e.g. "3"
 };
 
 /* ── AudioInput ─────────────────────────────────────────────────────────── */
@@ -40,7 +39,7 @@ public:
 private:
     void capture_loop();
 
-    pa_simple*         pa_          = nullptr;
+    PaStream*          stream_      = nullptr;
     int                channels_    = 0;
     std::thread        thread_;
     std::atomic<bool>  running_     {false};

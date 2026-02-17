@@ -35,6 +35,7 @@ ExternalProject_Add(build_opus_arm
 
 ExternalProject_Get_Property(build_opus_arm BINARY_DIR)
 ExternalProject_Get_Property(build_opus_arm SOURCE_DIR)
+set(OPUS_SOURCE_DIR ${SOURCE_DIR} CACHE INTERNAL "Opus source directory")
 set(OPUS_ARM_BINARY_DIR ${BINARY_DIR})
 ExternalProject_Get_Property(build_opus_x86 BINARY_DIR)
 set(OPUS_X86_BINARY_DIR ${BINARY_DIR})
@@ -58,6 +59,7 @@ set_target_properties(opus PROPERTIES
 
 else(APPLE AND BUILD_OSX_UNIVERSAL)
 ExternalProject_Add(build_opus
+    DOWNLOAD_EXTRACT_TIMESTAMP YES
     BUILD_IN_SOURCE 1
     PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND}

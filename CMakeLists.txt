@@ -9,11 +9,10 @@ set(CMAKE_C_STANDARD 11)
 find_package(PkgConfig  REQUIRED)
 find_package(Threads    REQUIRED)
 
-# ensure pkg-config can locate .pc files in the multiarch lib directory
-set(ENV{PKG_CONFIG_PATH} "/usr/lib/x86_64-linux-gnu/pkgconfig")
+pkg_check_modules(GTK       REQUIRED gtk+-3.0)
+pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
 
-pkg_check_modules(GTK    REQUIRED gtk+-3.0)
-pkg_check_modules(PULSE  REQUIRED libpulse-simple libpulse)
+link_directories(${GTK_LIBRARY_DIRS} ${PORTAUDIO_LIBRARY_DIRS})
 
 # ── Opus (with FARGAN/LPCNet support) ────────────────────────────────────────
 include(cmake/BuildOpus.cmake)
@@ -80,11 +79,11 @@ target_link_libraries(radae_headless
     rade
     opus
     m
-    ${PULSE_LIBRARIES}
+    ${PORTAUDIO_LIBRARIES}
     Threads::Threads
 )
 target_include_directories(radae_headless PRIVATE
-    ${PULSE_INCLUDE_DIRS}
+    ${PORTAUDIO_INCLUDE_DIRS}
     ${OPUS_SOURCE_DIR}/dnn
     ${OPUS_SOURCE_DIR}/celt
     ${OPUS_SOURCE_DIR}/include
@@ -105,7 +104,7 @@ add_executable(RADAE_Gui
 
 target_include_directories(RADAE_Gui PRIVATE
     ${GTK_INCLUDE_DIRS}
-    ${PULSE_INCLUDE_DIRS}
+    ${PORTAUDIO_INCLUDE_DIRS}
     ${OPUS_SOURCE_DIR}/dnn
     ${OPUS_SOURCE_DIR}/celt
     ${OPUS_SOURCE_DIR}/include
@@ -117,11 +116,11 @@ target_link_libraries(RADAE_Gui
     opus
     m
     ${GTK_LIBRARIES}
-    ${PULSE_LIBRARIES}
+    ${PORTAUDIO_LIBRARIES}
     Threads::Threads
 )
 
 target_compile_options(RADAE_Gui PRIVATE
     ${GTK_CFLAGS_OTHER}
-    -Wall -Wextra -Wpedantic -Wno-dev
+    -Wall -Wextra -Wpedantic
 )

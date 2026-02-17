@@ -2,112 +2,45 @@
 
 #include <cmath>
 #include <vector>
-#include <pulse/pulseaudio.h>
+#include <portaudio.h>
 
 /* ── construction / destruction ──────────────────────────────────────────── */
 
 AudioInput::AudioInput()  = default;
 AudioInput::~AudioInput() { stop(); close(); }
 
-/* ── device enumeration via PulseAudio introspection API ─────────────────── */
-
-struct EnumCtx {
-    std::vector<AudioDevice>* devices;
-    bool done;
-};
-
-static void source_info_cb(pa_context* /*c*/, const pa_source_info* i,
-                            int eol, void* userdata)
-{
-    auto* ctx = static_cast<EnumCtx*>(userdata);
-    if (eol > 0) { ctx->done = true; return; }
-    if (!i) return;
-    /* skip monitors (playback device loopbacks) */
-    if (i->monitor_of_sink != PA_INVALID_INDEX) return;
-
-    AudioDevice ad;
-    ad.name  = i->description ? i->description : i->name;
-    ad.hw_id = i->name;
-    ctx->devices->push_back(std::move(ad));
-}
-
-static void sink_info_cb(pa_context* /*c*/, const pa_sink_info* i,
-                          int eol, void* userdata)
-{
-    auto* ctx = static_cast<EnumCtx*>(userdata);
-    if (eol > 0) { ctx->done = true; return; }
-    if (!i) return;
-
-    AudioDevice ad;
-    ad.name  = i->description ? i->description : i->name;
-    ad.hw_id = i->name;
-    ctx->devices->push_back(std::move(ad));
-}
-
-static void context_state_cb(pa_context* c, void* userdata)
-{
-    auto* ready = static_cast<bool*>(userdata);
-    switch (pa_context_get_state(c)) {
-        case PA_CONTEXT_READY:
-        case PA_CONTEXT_FAILED:
-        case PA_CONTEXT_TERMINATED:
-            *ready = true;
-            break;
-        default:
-            break;
-    }
-}
-
-static std::vector<AudioDevice> enumerate_pa_devices(bool capture)
-{
-    std::vector<AudioDevice> devices;
-
-    pa_mainloop* ml = pa_mainloop_new();
-    if (!ml) return devices;
-
-    pa_context* ctx = pa_context_new(pa_mainloop_get_api(ml), "radae-enum");
-    if (!ctx) { pa_mainloop_free(ml); return devices; }
-
-    bool ready = false;
-    pa_context_set_state_callback(ctx, context_state_cb, &ready);
-    pa_context_connect(ctx, nullptr, PA_CONTEXT_NOFLAGS, nullptr);
-
-    /* wait for connection */
-    while (!ready)
-        pa_mainloop_iterate(ml, 1, nullptr);
-
-    if (pa_context_get_state(ctx) != PA_CONTEXT_READY) {
-        pa_context_unref(ctx);
-        pa_mainloop_free(ml);
-        return devices;
-    }
-
-    EnumCtx ectx{&devices, false};
-    pa_operation* op;
-    if (capture)
-        op = pa_context_get_source_info_list(ctx, source_info_cb, &ectx);
-    else
-        op = pa_context_get_sink_info_list(ctx, sink_info_cb, &ectx);
-
-    while (!ectx.done)
-        pa_mainloop_iterate(ml, 1, nullptr);
-
-    if (op) pa_operation_unref(op);
-    pa_context_disconnect(ctx);
-    pa_context_unref(ctx);
-    pa_mainloop_free(ml);
-
-    return devices;
-}
+/* ── device enumeration via PortAudio ────────────────────────────────────── */
 
 std::vector<AudioDevice> AudioInput::enumerate_devices()
 {
-    return enumerate_pa_devices(true);
+    std::vector<AudioDevice> devices;
+    int count = Pa_GetDeviceCount();
+    for (int i = 0; i < count; i++) {
+        const PaDeviceInfo* info = Pa_GetDeviceInfo(i);
+        if (!info || info->maxInputChannels <= 0) continue;
+
+        AudioDevice ad;
+        ad.name  = info->name;
+        ad.hw_id = std::to_string(i);
+        devices.push_back(std::move(ad));
+    }
+    return devices;
 }
 
 std::vector<AudioDevice> AudioInput::enumerate_playback_devices()
 {
-    return enumerate_pa_devices(false);
+    std::vector<AudioDevice> devices;
+    int count = Pa_GetDeviceCount();
+    for (int i = 0; i < count; i++) {
+        const PaDeviceInfo* info = Pa_GetDeviceInfo(i);
+        if (!info || info->maxOutputChannels <= 0) continue;
+
+        AudioDevice ad;
+        ad.name  = info->name;
+        ad.hw_id = std::to_string(i);
+        devices.push_back(std::move(ad));
+    }
+    return devices;
 }
 
 /* ── open / close ───────────────────────────────────────────────────────── */
@@ -116,34 +49,49 @@ bool AudioInput::open(const std::string& hw_id)
 {
     close();
 
-    pa_sample_spec ss{};
-    ss.format   = PA_SAMPLE_S16LE;
-    ss.rate     = 44100;
-    ss.channels = 2;
+    PaDeviceIndex dev = static_cast<PaDeviceIndex>(std::stoi(hw_id));
+    const PaDeviceInfo* info = Pa_GetDeviceInfo(dev);
+    if (!info) return false;
 
-    int error = 0;
-    pa_ = pa_simple_new(nullptr, "RADAE Decoder", PA_STREAM_RECORD,
-                        hw_id.c_str(), "level-meter",
-                        &ss, nullptr, nullptr, &error);
-    if (!pa_) {
-        /* fall back to mono */
-        ss.channels = 1;
-        pa_ = pa_simple_new(nullptr, "RADAE Decoder", PA_STREAM_RECORD,
-                            hw_id.c_str(), "level-meter",
-                            &ss, nullptr, nullptr, &error);
+    int ch = (info->maxInputChannels >= 2) ? 2 : 1;
+
+    PaStreamParameters params{};
+    params.device                    = dev;
+    params.channelCount              = ch;
+    params.sampleFormat              = paInt16;
+    params.suggestedLatency          = info->defaultLowInputLatency;
+    params.hostApiSpecificStreamInfo = nullptr;
+
+    PaError err = Pa_OpenStream(&stream_, &params, nullptr,
+                                44100.0, 512, paClipOff,
+                                nullptr, nullptr);
+    if (err != paNoError && ch == 2) {
+        ch = 1;
+        params.channelCount = 1;
+        err = Pa_OpenStream(&stream_, &params, nullptr,
+                            44100.0, 512, paClipOff,
+                            nullptr, nullptr);
     }
-    if (!pa_) return false;
+    if (err != paNoError) { stream_ = nullptr; return false; }
 
-    channels_ = ss.channels;
+    channels_ = ch;
+
+    err = Pa_StartStream(stream_);
+    if (err != paNoError) {
+        Pa_CloseStream(stream_); stream_ = nullptr;
+        return false;
+    }
+
     return true;
 }
 
 void AudioInput::close()
 {
     stop();
-    if (pa_) {
-        pa_simple_free(pa_);
-        pa_       = nullptr;
+    if (stream_) {
+        Pa_StopStream(stream_);
+        Pa_CloseStream(stream_);
+        stream_   = nullptr;
         channels_ = 0;
     }
     level_left_  = 0.0f;
@@ -154,7 +102,7 @@ void AudioInput::close()
 
 void AudioInput::start()
 {
-    if (!pa_ || running_) return;
+    if (!stream_ || running_) return;
     running_ = true;
     thread_  = std::thread(&AudioInput::capture_loop, this);
 }
@@ -179,10 +127,8 @@ void AudioInput::capture_loop()
 
     while (running_.load(std::memory_order_relaxed)) {
 
-        int error = 0;
-        int ret = pa_simple_read(pa_, buf.data(),
-                                 buf.size() * sizeof(int16_t), &error);
-        if (ret < 0) {
+        PaError err = Pa_ReadStream(stream_, buf.data(), READ_FRAMES);
+        if (err != paNoError && err != paInputOverflowed) {
             if (!running_.load(std::memory_order_relaxed)) break;
             continue;
         }

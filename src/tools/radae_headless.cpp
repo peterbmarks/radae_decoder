@@ -3,7 +3,7 @@
   radae_headless.cpp
 
   RADAE headless transceiver - reads config from file, operates in TX or RX mode
-  Uses PulseAudio for audio I/O
+  Uses PortAudio for audio I/O
 
 \*---------------------------------------------------------------------------*/
 
@@ -43,6 +43,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <portaudio.h>
 
 #include "rade_decoder.h"
 #include "rade_encoder.h"
@@ -121,7 +122,7 @@ bool parse_config_file(const char* filename, Config& config) {
 /* ── Device enumeration ────────────────────────────────────────────────── */
 
 void list_devices(void) {
-    fprintf(stderr, "\n=== PulseAudio Input Devices (for --fromradiodevice, --frommicrophone) ===\n");
+    fprintf(stderr, "\n=== PortAudio Input Devices (for --fromradiodevice, --frommicrophone) ===\n");
     auto input_devices = AudioInput::enumerate_devices();
     if (input_devices.empty()) {
         fprintf(stderr, "  No input devices found\n");
@@ -132,7 +133,7 @@ void list_devices(void) {
         }
     }
 
-    fprintf(stderr, "\n=== PulseAudio Output Devices (for --toradiodevice, --tospeakers) ===\n");
+    fprintf(stderr, "\n=== PortAudio Output Devices (for --toradiodevice, --tospeakers) ===\n");
     auto output_devices = AudioInput::enumerate_playback_devices();
     if (output_devices.empty()) {
         fprintf(stderr, "  No output devices found\n");
@@ -150,13 +151,13 @@ void list_devices(void) {
 void usage(void) {
     fprintf(stderr, "usage: radae_headless [options]\n");
     fprintf(stderr, "  -h, --help                  Show this help\n");
-    fprintf(stderr, "  -d, --devices               List available PulseAudio devices and exit\n");
+    fprintf(stderr, "  -d, --devices               List available PortAudio devices and exit\n");
     fprintf(stderr, "  -c FILE                     Config file (default: radae_headless.conf)\n");
     fprintf(stderr, "  -t                          Transmit mode (default: receive mode)\n");
-    fprintf(stderr, "  --fromradiodevice DEVICE    PulseAudio device for radio input\n");
-    fprintf(stderr, "  --toradiodevice DEVICE      PulseAudio device for radio output\n");
-    fprintf(stderr, "  --frommicrophone DEVICE     PulseAudio device for microphone input\n");
-    fprintf(stderr, "  --tospeakers DEVICE         PulseAudio device for speaker output\n");
+    fprintf(stderr, "  --fromradiodevice DEVICE    PortAudio device for radio input\n");
+    fprintf(stderr, "  --toradiodevice DEVICE      PortAudio device for radio output\n");
+    fprintf(stderr, "  --frommicrophone DEVICE     PortAudio device for microphone input\n");
+    fprintf(stderr, "  --tospeakers DEVICE         PortAudio device for speaker output\n");
     fprintf(stderr, "  --call CALLSIGN             Callsign (e.g., VK3TPM)\n");
     fprintf(stderr, "  --locator LOCATOR           Grid locator (e.g., QF22ds)\n");
     fprintf(stderr, "\n");
@@ -170,6 +171,8 @@ void usage(void) {
 /* ── Main ──────────────────────────────────────────────────────────────── */
 
 int main(int argc, char *argv[]) {
+    Pa_Initialize();
+
     int opt;
     const char* config_file = "radae_headless.conf";
     bool transmit_mode = false;
@@ -200,9 +203,11 @@ int main(int argc, char *argv[]) {
         switch (opt) {
         case 'h':
             usage();
+            Pa_Terminate();
             return 0;
         case 'd':
             list_devices();
+            Pa_Terminate();
             return 0;
         case 'c':
             config_file = optarg;
@@ -354,6 +359,7 @@ int main(int argc, char *argv[]) {
 
     /* Cleanup */
     rade_finalize();
+    Pa_Terminate();
 
     fprintf(stderr, "Shutdown complete\n");
     return 0;

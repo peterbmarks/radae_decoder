@@ -14,36 +14,42 @@ extern "C" {
 #include "cpu_support.h"
 }
 
-/* ── PulseAudio helper: open a pa_simple stream ──────────────────────── */
+/* ── PortAudio helper: open a stream ─────────────────────────────────── */
 
-static pa_simple* open_pulse(const std::string& dev, pa_stream_direction_t dir,
-                              unsigned int rate, const char* stream_name)
+static PaStream* open_portaudio(const std::string& dev_str, bool is_input,
+                                 unsigned int rate, unsigned long frames_per_buf)
 {
-    pa_sample_spec ss{};
-    ss.format   = PA_SAMPLE_S16LE;
-    ss.rate     = rate;
-    ss.channels = 1;
+    PaDeviceIndex dev = static_cast<PaDeviceIndex>(std::stoi(dev_str));
+    const PaDeviceInfo* info = Pa_GetDeviceInfo(dev);
+    if (!info) return nullptr;
 
-    pa_buffer_attr ba{};
-    if (dir == PA_STREAM_RECORD) {
-        ba.maxlength = static_cast<uint32_t>(-1);
-        ba.fragsize  = 512 * 2;    // ~512 frames of S16
-        ba.tlength   = static_cast<uint32_t>(-1);
-        ba.prebuf    = static_cast<uint32_t>(-1);
-        ba.minreq    = static_cast<uint32_t>(-1);
-    } else {
-        ba.maxlength = static_cast<uint32_t>(-1);
-        ba.tlength   = 8192 * 2;   // ~8192 frames of S16
-        ba.prebuf    = static_cast<uint32_t>(-1);
-        ba.minreq    = static_cast<uint32_t>(-1);
-        ba.fragsize  = static_cast<uint32_t>(-1);
+    PaStreamParameters params{};
+    params.device                    = dev;
+    params.channelCount              = 1;
+    params.sampleFormat              = paInt16;
+    params.suggestedLatency          = is_input ? info->defaultLowInputLatency
+                                                : info->defaultHighOutputLatency;
+    params.hostApiSpecificStreamInfo = nullptr;
+
+    PaStream* stream = nullptr;
+    PaError err = Pa_OpenStream(
+        &stream,
+        is_input  ? &params : nullptr,
+        !is_input ? &params : nullptr,
+        static_cast<double>(rate),
+        frames_per_buf,
+        paClipOff,
+        nullptr, nullptr);
+
+    if (err != paNoError) return nullptr;
+
+    err = Pa_StartStream(stream);
+    if (err != paNoError) {
+        Pa_CloseStream(stream);
+        return nullptr;
     }
 
-    int error = 0;
-    pa_simple* pa = pa_simple_new(nullptr, "RADAE Encoder", dir,
-                                  dev.c_str(), stream_name,
-                                  &ss, nullptr, &ba, &error);
-    return pa;
+    return stream;
 }
 
 /* ── streaming linear-interpolation resampler (same as rade_decoder.cpp) */
@@ -128,17 +134,17 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
 {
     close();
 
-    /* ── PulseAudio capture (mic, 16 kHz) ───────────────────────────── */
+    /* ── PortAudio capture (mic, 16 kHz) ───────────────────────────── */
     rate_in_ = RADE_FS_SPEECH;
-    pa_in_ = open_pulse(mic_hw_id, PA_STREAM_RECORD, rate_in_, "mic-capture");
+    pa_in_ = open_portaudio(mic_hw_id, true, rate_in_, 160);
     if (!pa_in_)
         return false;
 
-    /* ── PulseAudio playback (radio, 8 kHz) ─────────────────────────── */
+    /* ── PortAudio playback (radio, 8 kHz) ─────────────────────────── */
     rate_out_ = RADE_FS;
-    pa_out_ = open_pulse(radio_hw_id, PA_STREAM_PLAYBACK, rate_out_, "modem-playback");
+    pa_out_ = open_portaudio(radio_hw_id, false, rate_out_, 512);
     if (!pa_out_) {
-        pa_simple_free(pa_in_); pa_in_ = nullptr;
+        Pa_StopStream(pa_in_); Pa_CloseStream(pa_in_); pa_in_ = nullptr;
         return false;
     }
 
@@ -146,8 +152,8 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
     rade_initialize();
     rade_ = rade_open(nullptr, RADE_VERBOSE_0);
     if (!rade_) {
-        pa_simple_free(pa_in_);  pa_in_  = nullptr;
-        pa_simple_free(pa_out_); pa_out_ = nullptr;
+        Pa_StopStream(pa_in_);  Pa_CloseStream(pa_in_);  pa_in_  = nullptr;
+        Pa_StopStream(pa_out_); Pa_CloseStream(pa_out_); pa_out_ = nullptr;
         return false;
     }
 
@@ -155,8 +161,8 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
     lpcnet_ = lpcnet_encoder_create();
     if (!lpcnet_) {
         rade_close(rade_); rade_ = nullptr;
-        pa_simple_free(pa_in_);  pa_in_  = nullptr;
-        pa_simple_free(pa_out_); pa_out_ = nullptr;
+        Pa_StopStream(pa_in_);  Pa_CloseStream(pa_in_);  pa_in_  = nullptr;
+        Pa_StopStream(pa_out_); Pa_CloseStream(pa_out_); pa_out_ = nullptr;
         return false;
     }
 
@@ -186,8 +192,8 @@ void RadaeEncoder::close()
     if (rade_)   { rade_close(rade_);              rade_   = nullptr; }
     if (lpcnet_) { lpcnet_encoder_destroy(lpcnet_); lpcnet_ = nullptr; }
 
-    if (pa_in_)  { pa_simple_free(pa_in_);  pa_in_  = nullptr; }
-    if (pa_out_) { pa_simple_free(pa_out_); pa_out_ = nullptr; }
+    if (pa_in_)  { Pa_StopStream(pa_in_);  Pa_CloseStream(pa_in_);  pa_in_  = nullptr; }
+    if (pa_out_) { Pa_StopStream(pa_out_); Pa_CloseStream(pa_out_); pa_out_ = nullptr; }
 
     input_level_  = 0.0f;
     output_level_ = 0.0f;
@@ -213,14 +219,14 @@ void RadaeEncoder::stop()
     output_level_ = 0.0f;
 }
 
-/* ── helper: write IQ real part to PulseAudio output ─────────────────── */
+/* ── helper: write IQ real part to PortAudio output ──────────────────── */
 
-static void write_real_to_pulse(pa_simple* pa, const RADE_COMP* iq, int n_iq,
-                                unsigned int rate_modem, unsigned int rate_out,
-                                double& resamp_frac, float& resamp_prev,
-                                std::atomic<float>& output_level,
-                                const std::atomic<bool>& running,
-                                float tx_scale)
+static void write_real_to_output(PaStream* stream, const RADE_COMP* iq, int n_iq,
+                                  unsigned int rate_modem, unsigned int rate_out,
+                                  double& resamp_frac, float& resamp_prev,
+                                  std::atomic<float>& output_level,
+                                  const std::atomic<bool>& running,
+                                  float tx_scale)
 {
     (void)running;
 
@@ -252,10 +258,9 @@ static void write_real_to_pulse(pa_simple* pa, const RADE_COMP* iq, int n_iq,
         out_pcm[static_cast<size_t>(s)] = static_cast<int16_t>(v);
     }
 
-    /* write to PulseAudio output */
-    int error = 0;
-    pa_simple_write(pa, out_pcm.data(),
-                    static_cast<size_t>(n_resamp) * sizeof(int16_t), &error);
+    /* write to PortAudio output */
+    Pa_WriteStream(stream, out_pcm.data(),
+                   static_cast<unsigned long>(n_resamp));
 }
 
 /* ── processing loop (dedicated thread) ──────────────────────────────── */
@@ -290,7 +295,7 @@ void RadaeEncoder::processing_loop()
     int resamp_out_max = READ_FRAMES + 2;
     std::vector<float> resamp_tmp(static_cast<size_t>(resamp_out_max));
 
-    /* ── Pre-fill output buffer with silence so the PulseAudio playback buffer
+    /* ── Pre-fill output buffer with silence so the PortAudio playback buffer
      *    has enough headroom to survive the ~120 ms gap between modem frame
      *    writes (each modem frame requires accumulating 12 feature frames
      *    of mic input before any output is produced). ──────────────────── */
@@ -299,9 +304,8 @@ void RadaeEncoder::processing_loop()
         int prefill_out = prefill_frames
             * static_cast<int>(rate_out_) / static_cast<int>(RADE_FS);
         std::vector<int16_t> silence(static_cast<size_t>(prefill_out), 0);
-        int error = 0;
-        pa_simple_write(pa_out_, silence.data(),
-                        silence.size() * sizeof(int16_t), &error);
+        Pa_WriteStream(pa_out_, silence.data(),
+                       static_cast<unsigned long>(prefill_out));
     }
 
     while (running_.load(std::memory_order_relaxed)) {
@@ -310,10 +314,8 @@ void RadaeEncoder::processing_loop()
         while (static_cast<int>(acc_16k.size()) < LPCNET_FRAME_SIZE &&
                running_.load(std::memory_order_relaxed))
         {
-            int error = 0;
-            int ret = pa_simple_read(pa_in_, capture_buf.data(),
-                                     READ_FRAMES * sizeof(int16_t), &error);
-            if (ret < 0) {
+            PaError err = Pa_ReadStream(pa_in_, capture_buf.data(), READ_FRAMES);
+            if (err != paNoError && err != paInputOverflowed) {
                 if (!running_.load(std::memory_order_relaxed)) break;
                 continue;
             }
@@ -403,11 +405,11 @@ void RadaeEncoder::processing_loop()
                     }
                 }
 
-                write_real_to_pulse(pa_out_, tx_out.data(), n_out,
-                                    RADE_FS, rate_out_,
-                                    resamp_out_frac_, resamp_out_prev_,
-                                    output_level_, running_,
-                                    tx_scale_.load(std::memory_order_relaxed));
+                write_real_to_output(pa_out_, tx_out.data(), n_out,
+                                     RADE_FS, rate_out_,
+                                     resamp_out_frac_, resamp_out_prev_,
+                                     output_level_, running_,
+                                     tx_scale_.load(std::memory_order_relaxed));
                 feat_count = 0;
             }
         }
@@ -418,12 +420,13 @@ void RadaeEncoder::processing_loop()
         int n_out = rade_tx_eoo(rade_, eoo_out.data());
         if (bpf_enabled_.load(std::memory_order_relaxed))
             rade_bpf_process(&bpf_, eoo_out.data(), eoo_out.data(), n_out);
-        write_real_to_pulse(pa_out_, eoo_out.data(), n_out,
-                            RADE_FS, rate_out_,
-                            resamp_out_frac_, resamp_out_prev_,
-                            output_level_, running_,
-                            tx_scale_.load(std::memory_order_relaxed));
-        int error = 0;
-        pa_simple_drain(pa_out_, &error);
+        write_real_to_output(pa_out_, eoo_out.data(), n_out,
+                             RADE_FS, rate_out_,
+                             resamp_out_frac_, resamp_out_prev_,
+                             output_level_, running_,
+                             tx_scale_.load(std::memory_order_relaxed));
+        /* drain the output buffer */
+        Pa_StopStream(pa_out_);
+        Pa_StartStream(pa_out_);
     }
 }

@@ -16,8 +16,11 @@ if(APPLE AND BUILD_OSX_UNIVERSAL)
 # build it twice and use lipo to create a universal libopus.a instead.
 ExternalProject_Add(build_opus_x86
     DOWNLOAD_EXTRACT_TIMESTAMP YES
+    DOWNLOAD_DIR ${CMAKE_SOURCE_DIR}/.cache/opus
+    SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src-x86
+    STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-x86
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff || true"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=x86_64-apple-darwin --target=x86_64-apple-darwin CFLAGS=-arch\ x86_64\ -O2\ -mmacosx-version-min=10.11
     BUILD_COMMAND make
     INSTALL_COMMAND ""
@@ -25,8 +28,11 @@ ExternalProject_Add(build_opus_x86
 )
 ExternalProject_Add(build_opus_arm
     DOWNLOAD_EXTRACT_TIMESTAMP YES
+    DOWNLOAD_DIR ${CMAKE_SOURCE_DIR}/.cache/opus
+    SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src-arm
+    STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-arm
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff || true"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=aarch64-apple-darwin --target=aarch64-apple-darwin CFLAGS=-arch\ arm64\ -O2\ -mmacosx-version-min=10.11
     BUILD_COMMAND make
     INSTALL_COMMAND ""
@@ -58,10 +64,14 @@ set_target_properties(opus PROPERTIES
 )
 
 else(APPLE AND BUILD_OSX_UNIVERSAL)
+# Not Apple build
 ExternalProject_Add(build_opus
     DOWNLOAD_EXTRACT_TIMESTAMP YES
+    DOWNLOAD_DIR ${CMAKE_SOURCE_DIR}/.cache/opus
+    SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src
+    STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff || true"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND}
     BUILD_COMMAND make
     INSTALL_COMMAND ""

@@ -15,7 +15,8 @@ void audio_terminate() {}
 static std::vector<AudioDevice> enumerate_alsa(bool capture)
 {
     std::vector<AudioDevice> devices;
-
+    fprintf(stderr, "Enumerating ALSA devices\n");
+    
     void** hints = nullptr;
     if (snd_device_name_hint(-1, "pcm", &hints) < 0)
         return devices;

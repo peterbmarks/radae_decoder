@@ -56,6 +56,8 @@ static void context_state_cb(pa_context* c, void* userdata)
 
 static std::vector<AudioDevice> enumerate_pulse(bool capture)
 {
+    fprintf(stderr, "Enumerating PaulseAudio devices\n");
+    
     std::vector<AudioDevice> devices;
 
     pa_mainloop* ml = pa_mainloop_new();

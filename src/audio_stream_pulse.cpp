@@ -119,7 +119,7 @@ AudioStream::~AudioStream() { close(); }
 
 bool AudioStream::open(const std::string& device_id, bool is_input,
                        int channels, unsigned int sample_rate,
-                       unsigned long /*frames_per_buffer*/)
+                       unsigned long frames_per_buffer)
 {
     fprintf(stderr, "PulseAudio open\n");
 
@@ -132,6 +132,20 @@ bool AudioStream::open(const std::string& device_id, bool is_input,
 
     const char* dev = device_id.empty() ? nullptr : device_id.c_str();
 
+    /* For recording, override the default fragsize so PulseAudio delivers
+       data in small chunks matching frames_per_buffer.  The default is
+       often 1-2 seconds, causing pa_simple_read() to block that long and
+       producing visible gaps in the spectrum display.
+       Leave playback with the server default (nullptr) to avoid underruns. */
+    pa_buffer_attr attr{};
+    attr.maxlength = static_cast<uint32_t>(-1);
+    attr.tlength   = static_cast<uint32_t>(-1);
+    attr.prebuf    = static_cast<uint32_t>(-1);
+    attr.minreq    = static_cast<uint32_t>(-1);
+    attr.fragsize  = static_cast<uint32_t>(frames_per_buffer)
+                   * static_cast<uint32_t>(channels)
+                   * static_cast<uint32_t>(pa_sample_size(&ss));
+
     int error = 0;
     pa_simple* s = pa_simple_new(
         nullptr,                              /* server */
@@ -141,7 +155,7 @@ bool AudioStream::open(const std::string& device_id, bool is_input,
         is_input ? "capture" : "playback",    /* stream name */
         &ss,                                  /* sample spec */
         nullptr,                              /* channel map */
-        nullptr,                              /* buffering attributes */
+        is_input ? &attr : nullptr,           /* buffering attributes */
         &error);
 
     if (!s) return false;

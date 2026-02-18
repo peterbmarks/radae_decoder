@@ -35,6 +35,8 @@ static GtkWidget*               g_status             = nullptr;   // status labe
 static GtkWidget*               g_settings_dlg       = nullptr;   // settings dialog
 static GtkWidget*               g_mic_slider         = nullptr;   // TX mic input level slider
 static GtkWidget*               g_tx_slider          = nullptr;   // TX output level slider
+static GtkWidget*               g_callsign_entry     = nullptr;   // station callsign
+static GtkWidget*               g_gridsquare_entry   = nullptr;   // station gridsquare
 static guint                    g_timer              = 0;         // meter update timer
 static bool                     g_updating_combos    = false;     // guard programmatic changes
 
@@ -78,6 +80,8 @@ static void save_config()
         f << "tx_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_tx_slider))) << '\n';
         f << "mic_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_mic_slider))) << '\n';
         f << "bpf_enabled=" << (g_bpf_switch && gtk_switch_get_active(GTK_SWITCH(g_bpf_switch)) ? 1 : 0) << '\n';
+        f << "callsign=" << (g_callsign_entry ? gtk_entry_get_text(GTK_ENTRY(g_callsign_entry)) : "") << '\n';
+        f << "gridsquare=" << (g_gridsquare_entry ? gtk_entry_get_text(GTK_ENTRY(g_gridsquare_entry)) : "") << '\n';
     }
 }
 
@@ -88,6 +92,7 @@ static bool restore_config()
     if (!f) return false;
 
     std::string saved_in, saved_out, saved_tx_in, saved_tx_out;
+    std::string saved_callsign, saved_gridsquare;
     int saved_tx_level = -1;
     int saved_mic_level = -1;
     int saved_bpf_enabled = -1;
@@ -107,6 +112,10 @@ static bool restore_config()
             saved_mic_level = std::stoi(line.substr(10));
         else if (line.compare(0, 12, "bpf_enabled=") == 0)
             saved_bpf_enabled = std::stoi(line.substr(12));
+        else if (line.compare(0, 9, "callsign=") == 0)
+            saved_callsign = line.substr(9);
+        else if (line.compare(0, 11, "gridsquare=") == 0)
+            saved_gridsquare = line.substr(11);
     }
 
     if (saved_in.empty() && saved_out.empty()) return false;
@@ -152,6 +161,10 @@ static bool restore_config()
         gtk_range_set_value(GTK_RANGE(g_mic_slider), saved_mic_level);
     if (saved_bpf_enabled >= 0 && g_bpf_switch)
         gtk_switch_set_active(GTK_SWITCH(g_bpf_switch), saved_bpf_enabled != 0);
+    if (!saved_callsign.empty() && g_callsign_entry)
+        gtk_entry_set_text(GTK_ENTRY(g_callsign_entry), saved_callsign.c_str());
+    if (!saved_gridsquare.empty() && g_gridsquare_entry)
+        gtk_entry_set_text(GTK_ENTRY(g_gridsquare_entry), saved_gridsquare.c_str());
 
     return (in_idx >= 0 && out_idx >= 0);
 }
@@ -353,6 +366,12 @@ static void on_output_combo_changed(GtkComboBox* combo, gpointer /*data*/)
 static void on_tx_combo_changed(GtkComboBox* /*combo*/, gpointer /*data*/)
 {
     if (g_updating_combos) return;
+    save_config();
+}
+
+/* callsign or gridsquare changed: save config */
+static void on_station_entry_changed(GtkEditable* /*editable*/, gpointer /*data*/)
+{
     save_config();
 }
 
@@ -748,6 +767,47 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     gtk_box_pack_start(GTK_BOX(tx_output_hbox), tx_out_spacer, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(scontent), tx_output_hbox, FALSE, FALSE, 0);
+
+    /* ── separator + Station section ───────────────────────────────── */
+    gtk_box_pack_start(GTK_BOX(scontent),
+                       gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);
+
+    GtkWidget* station_heading = gtk_label_new(nullptr);
+    gtk_label_set_markup(GTK_LABEL(station_heading), "<b>Station</b>");
+    gtk_label_set_xalign(GTK_LABEL(station_heading), 0.0);
+    gtk_box_pack_start(GTK_BOX(scontent), station_heading, FALSE, FALSE, 0);
+
+    /* callsign row */
+    GtkWidget* callsign_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* callsign_label = gtk_label_new("Callsign:");
+    gtk_widget_set_size_request(callsign_label, 50, -1);
+    gtk_label_set_xalign(GTK_LABEL(callsign_label), 0.0);
+    gtk_box_pack_start(GTK_BOX(callsign_hbox), callsign_label, FALSE, FALSE, 0);
+
+    g_callsign_entry = gtk_entry_new();
+    gtk_entry_set_max_length(GTK_ENTRY(g_callsign_entry), 16);
+    gtk_widget_set_tooltip_text(g_callsign_entry, "Your station callsign (e.g. W1AW)");
+    g_signal_connect(g_callsign_entry, "changed", G_CALLBACK(on_station_entry_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(callsign_hbox), g_callsign_entry, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), callsign_hbox, FALSE, FALSE, 0);
+
+    /* gridsquare row */
+    GtkWidget* grid_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* grid_label = gtk_label_new("Grid Square:");
+    gtk_widget_set_size_request(grid_label, 50, -1);
+    gtk_label_set_xalign(GTK_LABEL(grid_label), 0.0);
+    gtk_box_pack_start(GTK_BOX(grid_hbox), grid_label, FALSE, FALSE, 0);
+
+    g_gridsquare_entry = gtk_entry_new();
+    gtk_entry_set_max_length(GTK_ENTRY(g_gridsquare_entry), 8);
+    gtk_widget_set_tooltip_text(g_gridsquare_entry, "Your Maidenhead grid square (e.g. FN31)");
+    g_signal_connect(g_gridsquare_entry, "changed", G_CALLBACK(on_station_entry_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(grid_hbox), g_gridsquare_entry, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), grid_hbox, FALSE, FALSE, 0);
 
     /* ── layout ────────────────────────────────────────────────────── */
     GtkWidget* vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);

@@ -19,7 +19,7 @@ ExternalProject_Add(build_opus_x86
     BUILD_IN_SOURCE 1
     PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=x86_64-apple-darwin --target=x86_64-apple-darwin CFLAGS=-arch\ x86_64\ -O2\ -mmacosx-version-min=10.11
-    BUILD_COMMAND $(MAKE)
+    BUILD_COMMAND make
     INSTALL_COMMAND ""
     URL ${OPUS_URL}
 )
@@ -28,7 +28,7 @@ ExternalProject_Add(build_opus_arm
     BUILD_IN_SOURCE 1
     PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=aarch64-apple-darwin --target=aarch64-apple-darwin CFLAGS=-arch\ arm64\ -O2\ -mmacosx-version-min=10.11
-    BUILD_COMMAND $(MAKE)
+    BUILD_COMMAND make
     INSTALL_COMMAND ""
     URL ${OPUS_URL}
 )
@@ -63,7 +63,7 @@ ExternalProject_Add(build_opus
     BUILD_IN_SOURCE 1
     PATCH_COMMAND sh -c "patch dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND}
-    BUILD_COMMAND $(MAKE)
+    BUILD_COMMAND make
     INSTALL_COMMAND ""
     URL ${OPUS_URL}
 )

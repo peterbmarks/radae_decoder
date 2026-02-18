@@ -48,6 +48,12 @@ public:
     void set_bpf_enabled(bool en) { bpf_enabled_.store(en, std::memory_order_relaxed); }
     bool get_bpf_enabled() const  { return bpf_enabled_.load(std::memory_order_relaxed); }
 
+    /* Station info packed into the EOO data frame (fixed-width 7-bit ASCII):
+     *   bits   0–111 : callsign   (16 chars × 7 bits, null-padded)
+     *   bits 112–167 : gridsquare ( 8 chars × 7 bits, null-padded) */
+    void set_callsign(const std::string& callsign);
+    void set_gridsquare(const std::string& gridsquare);
+
     /* spectrum of TX output (thread-safe via mutex) ------------------------- */
     static constexpr int FFT_SIZE      = 512;
     static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 256
@@ -87,6 +93,12 @@ private:
 
     /* ── TX output bandpass filter ───────────────────────────────────────── */
     rade_bpf           bpf_;
+
+    /* ── Station info ────────────────────────────────────────────────────── */
+    std::string        callsign_;
+    std::string        gridsquare_;
+
+    void apply_eoo_bits();  // encode callsign_ + gridsquare_ → rade_ EOO bits
 
     /* ── FFT / spectrum of TX output ─────────────────────────────────────── */
     float              fft_window_[FFT_SIZE]       = {};

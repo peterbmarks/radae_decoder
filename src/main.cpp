@@ -332,6 +332,10 @@ static void start_encoder(int mic_idx, int radio_idx)
 
     if (g_bpf_switch)
         g_encoder->set_bpf_enabled(gtk_switch_get_active(GTK_SWITCH(g_bpf_switch)));
+    if (g_callsign_entry)
+        g_encoder->set_callsign(gtk_entry_get_text(GTK_ENTRY(g_callsign_entry)));
+    if (g_gridsquare_entry)
+        g_encoder->set_gridsquare(gtk_entry_get_text(GTK_ENTRY(g_gridsquare_entry)));
     g_encoder->start();
     set_btn_state(true);
     set_status("Transmitting\xe2\x80\xa6");
@@ -369,10 +373,16 @@ static void on_tx_combo_changed(GtkComboBox* /*combo*/, gpointer /*data*/)
     save_config();
 }
 
-/* callsign or gridsquare changed: save config */
-static void on_station_entry_changed(GtkEditable* /*editable*/, gpointer /*data*/)
+/* callsign or gridsquare changed: save config and push new value into EOO */
+static void on_station_entry_changed(GtkEditable* editable, gpointer /*data*/)
 {
     save_config();
+    if (g_encoder) {
+        if (g_callsign_entry && GTK_WIDGET(editable) == g_callsign_entry)
+            g_encoder->set_callsign(gtk_entry_get_text(GTK_ENTRY(g_callsign_entry)));
+        else if (g_gridsquare_entry && GTK_WIDGET(editable) == g_gridsquare_entry)
+            g_encoder->set_gridsquare(gtk_entry_get_text(GTK_ENTRY(g_gridsquare_entry)));
+    }
 }
 
 /* TX switch toggled: stop current mode and start the new one */

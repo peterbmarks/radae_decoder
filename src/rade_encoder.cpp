@@ -84,6 +84,51 @@ void RadaeEncoder::get_spectrum(float* out, int n) const
     std::memcpy(out, spectrum_mag_, static_cast<size_t>(count) * sizeof(float));
 }
 
+/* ── callsign → EOO bits ─────────────────────────────────────────────── */
+
+/* Encode callsign_ and gridsquare_ as fixed-width 7-bit ASCII fields into
+ * the EOO supplementary data channel.  Bits are in +/-1 float form.
+ * Layout (bits 0–179):
+ *   bits   0–111 : callsign   (16 chars × 7 bits, MSB first, null-padded)
+ *   bits 112–167 : gridsquare ( 8 chars × 7 bits, MSB first, null-padded)
+ *   bits 168–179 : unused (+1) */
+void RadaeEncoder::apply_eoo_bits()
+{
+    if (!rade_) return;
+
+    int n = rade_n_eoo_bits(rade_);
+    std::vector<float> bits(static_cast<size_t>(n), 1.0f);
+
+    auto encode_field = [&](const std::string& s, int max_chars, int start_bit) {
+        for (int i = 0; i < max_chars; i++) {
+            int bit = start_bit + i * 7;
+            if (bit + 7 > n) break;
+            unsigned char uc = (i < static_cast<int>(s.size()))
+                               ? static_cast<unsigned char>(s[static_cast<size_t>(i)])
+                               : 0;
+            for (int b = 6; b >= 0; b--)
+                bits[static_cast<size_t>(bit + (6 - b))] = ((uc >> b) & 1) ? 1.0f : -1.0f;
+        }
+    };
+
+    encode_field(callsign_,   16,   0);   // bits   0–111
+    encode_field(gridsquare_,  8, 112);   // bits 112–167
+
+    rade_tx_set_eoo_bits(rade_, bits.data());
+}
+
+void RadaeEncoder::set_callsign(const std::string& callsign)
+{
+    callsign_ = callsign;
+    apply_eoo_bits();
+}
+
+void RadaeEncoder::set_gridsquare(const std::string& gridsquare)
+{
+    gridsquare_ = gridsquare;
+    apply_eoo_bits();
+}
+
 /* ── construction / destruction ──────────────────────────────────────── */
 
 RadaeEncoder::RadaeEncoder()  = default;
@@ -116,6 +161,9 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
         stream_out_.close();
         return false;
     }
+
+    /* ── Encode callsign into EOO bits ───────────────────────────────── */
+    apply_eoo_bits();
 
     /* ── LPCNet feature extractor ────────────────────────────────────── */
     lpcnet_ = lpcnet_encoder_create();

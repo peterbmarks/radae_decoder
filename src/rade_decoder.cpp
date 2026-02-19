@@ -350,7 +350,6 @@ void RadaeDecoder::start()
 
 void RadaeDecoder::stop()
 {
-    if (!running_) return;
     running_ = false;
 
     if (thread_.joinable()) thread_.join();

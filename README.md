@@ -196,6 +196,75 @@ If you see "Failed to open audio devices":
 - **ALSA**: Ensure your user is in the `audio` group (`sudo usermod -aG audio $USER`, then log out and back in).
 - **PulseAudio**: Ensure PulseAudio is running (`pulseaudio --check` or `pactl info`).
 
+## radae_headless — Headless Transceiver
+
+`radae_headless` is a command-line tool that runs the full RADAE encode/decode pipeline without a graphical interface. It is useful for headless servers, automation, or embedded deployments where a display is unavailable.
+
+```bash
+./build/radae_headless [options]
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `-h`, `--help` | Show help and exit |
+| `-d`, `--devices` | List available audio devices and exit |
+| `-c FILE` | Config file path (default: `radae_headless.conf`) |
+| `-t` | Transmit mode (default is receive mode) |
+| `--fromradio DEVICE` | Audio input device receiving the RADAE modem signal (RX) |
+| `--tospeaker DEVICE` | Audio output device for decoded speech (RX) |
+| `--frommic DEVICE` | Audio input device for the microphone (TX) |
+| `--toradio DEVICE` | Audio output device connected to the radio transmitter (TX) |
+| `--call CALLSIGN` | Your callsign (e.g. `VK3TPM`) — saved to the config file |
+
+### Modes
+
+**Receive (RX)** — default mode. Requires `--fromradio` and `--tospeaker`:
+
+```bash
+./build/radae_headless --fromradio alsa_input.usb-radio --tospeaker alsa_output.pci-speakers
+```
+
+**Transmit (TX)** — enabled with `-t`. Requires `--frommic` and `--toradio`:
+
+```bash
+./build/radae_headless -t --frommic alsa_input.pci-mic --toradio alsa_output.usb-radio
+```
+
+Use `--devices` to discover the correct device names for your system:
+
+```bash
+./build/radae_headless --devices
+```
+
+### Configuration file
+
+Settings are persisted to `radae_headless.conf` (or the file given with `-c`). If the config file does not exist and device options are supplied on the command line, the file is created automatically.
+
+The config file format is `key=value`, one per line; lines beginning with `#` are comments:
+
+```ini
+# radae_headless configuration
+fromradio=alsa_input.usb-radio
+tospeaker=alsa_output.pci-speakers
+frommic=alsa_input.pci-mic
+toradio=alsa_output.usb-radio
+call=VK3TPM
+```
+
+Command-line options always override values in the config file.
+
+### Status output
+
+While running, the tool prints a live status line to `stderr` every second:
+
+```
+SYNC SNR: 12.3 dB  Freq: +1.5 Hz  In: 0.45  Out: 0.62
+```
+
+`SYNC` becomes `----` when the receiver has not yet locked on to a signal. Press **Ctrl+C** to stop cleanly (an EOO frame is sent automatically in TX mode).
+
 ## Architecture
 
 ### Code structure

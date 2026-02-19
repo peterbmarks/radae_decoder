@@ -109,7 +109,7 @@ cd radae_decoder
 
 mkdir -p build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release -Wno-dev ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 
 # First build downloads Opus (~175 MB) and compiles everything.
 # The NN weight files (rade_enc_data.c, rade_dec_data.c) are ~47 MB
@@ -125,15 +125,15 @@ The audio backend is selected at configure time via `-DAUDIO_BACKEND=`:
 
 | Value | Default on | Library needed |
 |-------|-----------|----------------|
-| `ALSA` | Linux | `libasound2-dev` |
-| `PULSE` | — | `libpulse-dev` |
+| `ALSA` | - | `libasound2-dev` |
+| `PULSE` | Linux | `libpulse-dev` |
 | `PORTAUDIO` | macOS | `portaudio19-dev` |
 
 ```bash
 # Linux default (PULSE)
 cmake -DCMAKE_BUILD_TYPE=Release ..
 
-# Explicitly choose PulseAudio on Linux
+# Explicitly choose PulseAudio (default on Linux)
 cmake -DCMAKE_BUILD_TYPE=Release -DAUDIO_BACKEND=PULSE ..
 
 # Explicitly choose ALSA on Linux

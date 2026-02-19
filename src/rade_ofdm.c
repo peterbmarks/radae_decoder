@@ -555,9 +555,9 @@ int rade_ofdm_demod_eoo(const rade_ofdm *ofdm, float *z_hat, const RADE_COMP *rx
         }
     }
 
-    /* Extract data symbols (symbols 2 to Ns, i.e., Ns-1 symbols) */
+    /* Extract data symbols (symbols 2 to Ns inclusive, i.e., Ns-1 symbols) */
     int out_idx = 0;
-    for (int s = 2; s < Ns; s++) {
+    for (int s = 2; s < Ns + 1; s++) {
         for (int c = 0; c < Nc; c++) {
             z_hat[out_idx++] = rx_sym[s][c].real;
             z_hat[out_idx++] = rx_sym[s][c].imag;

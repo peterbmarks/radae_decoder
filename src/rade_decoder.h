@@ -39,6 +39,11 @@ public:
     float get_output_level_left() const { return output_level_.load(std::memory_order_relaxed); }
     float get_output_level_right()const { return output_level_.load(std::memory_order_relaxed); } // mono
 
+    /* EOO text received in last End-of-Over frame.
+     * Returns true (once) when a new EOO has arrived; fills callsign_out and
+     * gridsquare_out with whatever was decoded (may be empty strings). */
+    bool pop_eoo(std::string& callsign_out, std::string& gridsquare_out);
+
     /* spectrum (thread-safe via mutex) --------------------------------------- */
     static constexpr int FFT_SIZE      = 512;
     static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 256
@@ -82,6 +87,12 @@ private:
     /* ── Delay buffer for Hilbert real part ────────────────────────────────── */
     float delay_buf_[HILBERT_NTAPS] = {};
     int   delay_pos_                = 0;
+
+    /* ── EOO text ──────────────────────────────────────────────────────────── */
+    std::atomic<bool>  eoo_pending_    {false};
+    std::string        eoo_callsign_;
+    std::string        eoo_gridsquare_;
+    std::mutex         eoo_mutex_;
 
     /* ── FFT / spectrum ────────────────────────────────────────────────────── */
     float              fft_window_[FFT_SIZE]      = {};

@@ -199,6 +199,20 @@ void RadaeDecoder::get_spectrum(float* out, int n) const
     std::memcpy(out, spectrum_mag_, static_cast<size_t>(count) * sizeof(float));
 }
 
+/* ── pop_eoo (thread-safe, consume-once) ─────────────────────────────── */
+
+bool RadaeDecoder::pop_eoo(std::string& callsign_out, std::string& gridsquare_out)
+{
+    if (!eoo_pending_.load(std::memory_order_acquire))
+        return false;
+
+    std::lock_guard<std::mutex> lock(eoo_mutex_);
+    eoo_pending_.store(false, std::memory_order_release);
+    callsign_out   = eoo_callsign_;
+    gridsquare_out = eoo_gridsquare_;
+    return true;
+}
+
 /* ── open / close ────────────────────────────────────────────────────── */
 
 bool RadaeDecoder::open(const std::string& input_hw_id,
@@ -566,6 +580,39 @@ void RadaeDecoder::processing_loop()
         int has_eoo = 0;
         int n_out = rade_rx(rade_, feat_buf.data(), &has_eoo,
                             eoo_buf.data(), rx_buf.data());
+
+        /* decode EOO text if an End-of-Over frame arrived */
+        if (has_eoo) {
+            /* Decode fixed-width 7-bit ASCII fields from soft-decision bits.
+             * Layout matches the encoder in rade_encoder.cpp:
+             *   bits   0–111 : callsign   (16 chars × 7 bits)
+             *   bits 112–167 : gridsquare ( 8 chars × 7 bits)
+             * A soft bit > 0 is a 1; ≤ 0 is a 0. Null char ends the field. */
+            auto decode_field = [&](int start_bit, int max_chars) -> std::string {
+                std::string s;
+                for (int i = 0; i < max_chars; i++) {
+                    int bit = start_bit + i * 7;
+                    if (bit + 7 > n_eoo_bits) break;
+                    unsigned char uc = 0;
+                    for (int b = 6; b >= 0; b--)
+                        uc |= static_cast<unsigned char>(
+                            (eoo_buf[static_cast<size_t>(bit + (6 - b))] > 0.0f ? 1 : 0) << b);
+                    if (uc == 0) break;   // null-padded field terminator
+                    if (uc >= 0x20 && uc < 0x7f) s += static_cast<char>(uc);
+                }
+                return s;
+            };
+
+            std::string cs = decode_field(0,   16);
+            std::string gs = decode_field(112,  8);
+
+            {
+                std::lock_guard<std::mutex> lock(eoo_mutex_);
+                eoo_callsign_   = std::move(cs);
+                eoo_gridsquare_ = std::move(gs);
+            }
+            eoo_pending_.store(true, std::memory_order_release);
+        }
 
         /* update sync status */
         bool now_synced = (rade_sync(rade_) != 0);

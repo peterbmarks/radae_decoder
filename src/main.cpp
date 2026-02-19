@@ -277,16 +277,37 @@ static gboolean on_meter_tick(gpointer /*data*/)
                                     g_decoder->spectrum_sample_rate());
     }
 
-    /* update status with sync info */
-    if (g_decoder->is_synced()) {
-        char buf[128];
-        std::snprintf(buf, sizeof buf,
-                      "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz",
-                      static_cast<double>(g_decoder->snr_dB()),
-                      static_cast<double>(g_decoder->freq_offset()));
-        set_status(buf);
-    } else {
-        set_status("Searching for signal\xe2\x80\xa6");
+    /* collect EOO text if a new End-of-Over arrived this tick */
+    {
+        static std::string s_eoo_callsign, s_eoo_gridsquare;
+        std::string cs, gs;
+        if (g_decoder->pop_eoo(cs, gs)) {
+            s_eoo_callsign   = cs;
+            s_eoo_gridsquare = gs;
+        }
+
+        /* update status with sync info (and EOO text when available) */
+        if (g_decoder->is_synced()) {
+            char buf[192];
+            if (!s_eoo_callsign.empty() || !s_eoo_gridsquare.empty()) {
+                std::snprintf(buf, sizeof buf,
+                              "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz  EOO: %s %s",
+                              static_cast<double>(g_decoder->snr_dB()),
+                              static_cast<double>(g_decoder->freq_offset()),
+                              s_eoo_callsign.c_str(),
+                              s_eoo_gridsquare.c_str());
+            } else {
+                std::snprintf(buf, sizeof buf,
+                              "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz",
+                              static_cast<double>(g_decoder->snr_dB()),
+                              static_cast<double>(g_decoder->freq_offset()));
+            }
+            set_status(buf);
+        } else {
+            s_eoo_callsign.clear();
+            s_eoo_gridsquare.clear();
+            set_status("Searching for signal\xe2\x80\xa6");
+        }
     }
 
     return TRUE;

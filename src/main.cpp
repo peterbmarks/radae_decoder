@@ -284,6 +284,7 @@ static gboolean on_meter_tick(gpointer /*data*/)
         if (g_decoder->pop_eoo(cs, gs)) {
             s_eoo_callsign   = cs;
             s_eoo_gridsquare = gs;
+            fprintf(stderr, s_eoo_callsign.c_str());
         }
 
         /* update status with sync info (and EOO text when available) */

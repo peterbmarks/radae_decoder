@@ -288,6 +288,7 @@ int rade_rx_process(rade_rx_state *rx, float *features_out, float *eoo_out, cons
         }
 
         if (endofover) {
+            fprintf(stderr, "End of over detected.\n");
             /* Copy EOO symbols to output */
             float z_hat_eoo[(RADE_NS - 1) * RADE_NC * 2];
             rade_ofdm_demod_eoo(&rx->ofdm, z_hat_eoo, rx_corrected, rx->time_offset);

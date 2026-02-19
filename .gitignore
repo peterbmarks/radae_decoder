@@ -2,3 +2,5 @@ build/
 tx.iq
 build-macos/
 .cache/
+.vscode/
+.claude/

@@ -50,12 +50,11 @@
 /* ── Configuration structure ──────────────────────────────────────────── */
 
 struct Config {
-    std::string fromradiodevice;
-    std::string toradiodevice;
-    std::string frommicrophone;
-    std::string tospeakers;
+    std::string fromradio;
+    std::string toradio;
+    std::string frommic;
+    std::string tospeaker;
     std::string call;
-    std::string locator;
 };
 
 /* ── Global flag for signal handling ──────────────────────────────────── */
@@ -67,7 +66,22 @@ void signal_handler(int signum) {
     g_running = false;
 }
 
-/* ── Configuration file parsing ───────────────────────────────────────── */
+/* ── Configuration file I/O ───────────────────────────────────────────── */
+
+bool write_config_file(const char* filename, const Config& config) {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        fprintf(stderr, "Error: Could not write config file: %s\n", filename);
+        return false;
+    }
+    file << "# radae_headless configuration\n";
+    if (!config.fromradio.empty()) file << "fromradio=" << config.fromradio << '\n';
+    if (!config.toradio.empty())   file << "toradio="   << config.toradio   << '\n';
+    if (!config.frommic.empty())   file << "frommic="   << config.frommic   << '\n';
+    if (!config.tospeaker.empty()) file << "tospeaker=" << config.tospeaker << '\n';
+    if (!config.call.empty())      file << "call="      << config.call      << '\n';
+    return true;
+}
 
 bool parse_config_file(const char* filename, Config& config) {
     std::ifstream file(filename);
@@ -99,18 +113,16 @@ bool parse_config_file(const char* filename, Config& config) {
         value.erase(value.find_last_not_of(" \t") + 1);
 
         /* Assign to config structure */
-        if (key == "fromradiodevice") {
-            config.fromradiodevice = value;
-        } else if (key == "toradiodevice") {
-            config.toradiodevice = value;
-        } else if (key == "frommicrophone") {
-            config.frommicrophone = value;
-        } else if (key == "tospeakers") {
-            config.tospeakers = value;
+        if (key == "fromradio") {
+            config.fromradio = value;
+        } else if (key == "toradio") {
+            config.toradio = value;
+        } else if (key == "frommic") {
+            config.frommic = value;
+        } else if (key == "tospeaker") {
+            config.tospeaker = value;
         } else if (key == "call") {
             config.call = value;
-        } else if (key == "locator") {
-            config.locator = value;
         }
     }
 
@@ -120,7 +132,7 @@ bool parse_config_file(const char* filename, Config& config) {
 /* ── Device enumeration ────────────────────────────────────────────────── */
 
 void list_devices(void) {
-    fprintf(stderr, "\n=== Input Devices (for --fromradiodevice, --frommicrophone) ===\n");
+    fprintf(stderr, "\n=== Input Devices (for --fromradio, --frommic) ===\n");
     auto input_devices = AudioInput::enumerate_devices();
     if (input_devices.empty()) {
         fprintf(stderr, "  No input devices found\n");
@@ -131,7 +143,7 @@ void list_devices(void) {
         }
     }
 
-    fprintf(stderr, "\n=== Output Devices (for --toradiodevice, --tospeakers) ===\n");
+    fprintf(stderr, "\n=== Output Devices (for --toradio, --tospeaker) ===\n");
     auto output_devices = AudioInput::enumerate_playback_devices();
     if (output_devices.empty()) {
         fprintf(stderr, "  No output devices found\n");
@@ -152,16 +164,15 @@ void usage(void) {
     fprintf(stderr, "  -d, --devices               List available audio devices and exit\n");
     fprintf(stderr, "  -c FILE                     Config file (default: radae_headless.conf)\n");
     fprintf(stderr, "  -t                          Transmit mode (default: receive mode)\n");
-    fprintf(stderr, "  --fromradiodevice DEVICE    Audio device for radio input\n");
-    fprintf(stderr, "  --toradiodevice DEVICE      Audio device for radio output\n");
-    fprintf(stderr, "  --frommicrophone DEVICE     Audio device for microphone input\n");
-    fprintf(stderr, "  --tospeakers DEVICE         Audio device for speaker output\n");
+    fprintf(stderr, "  --fromradio DEVICE    Audio device for radio input\n");
+    fprintf(stderr, "  --toradio DEVICE      Audio device for radio output\n");
+    fprintf(stderr, "  --frommic DEVICE     Audio device for microphone input\n");
+    fprintf(stderr, "  --tospeaker DEVICE         Audio device for speaker output\n");
     fprintf(stderr, "  --call CALLSIGN             Callsign (e.g., VK3TPM)\n");
-    fprintf(stderr, "  --locator LOCATOR           Grid locator (e.g., QF22ds)\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Headless RADAE transceiver:\n");
-    fprintf(stderr, "  RX mode: reads audio from --fromradiodevice, decodes, plays to --tospeakers\n");
-    fprintf(stderr, "  TX mode: reads audio from --frommicrophone, encodes, sends to --toradiodevice\n");
+    fprintf(stderr, "  RX mode: reads audio from --fromradio, decodes, plays to --tospeaker\n");
+    fprintf(stderr, "  TX mode: reads audio from --frommic, encodes, sends to --toradio\n");
     fprintf(stderr, "\n");
     fprintf(stderr, "Press Ctrl+C to stop.\n");
 }
@@ -180,20 +191,18 @@ int main(int argc, char *argv[]) {
     /* Track which options were explicitly set via command line */
     bool override_fromradio = false;
     bool override_toradio = false;
-    bool override_frommicrophone = false;
-    bool override_tospeakers = false;
+    bool override_frommic = false;
+    bool override_tospeaker = false;
     bool override_call = false;
-    bool override_locator = false;
 
     static struct option long_options[] = {
         {"help",            no_argument,       NULL, 'h'},
         {"devices",         no_argument,       NULL, 'd'},
-        {"fromradiodevice", required_argument, NULL, 'f'},
-        {"toradiodevice",   required_argument, NULL, 'r'},
-        {"frommicrophone",  required_argument, NULL, 'm'},
-        {"tospeakers",      required_argument, NULL, 's'},
+        {"fromradio", required_argument, NULL, 'f'},
+        {"toradio",   required_argument, NULL, 'r'},
+        {"frommic",  required_argument, NULL, 'm'},
+        {"tospeaker",      required_argument, NULL, 's'},
         {"call",            required_argument, NULL, 'a'},
-        {"locator",         required_argument, NULL, 'l'},
         {NULL,              0,                 NULL, 0}
     };
 
@@ -214,28 +223,24 @@ int main(int argc, char *argv[]) {
             transmit_mode = true;
             break;
         case 'f':
-            overrides.fromradiodevice = optarg;
+            overrides.fromradio = optarg;
             override_fromradio = true;
             break;
         case 'r':
-            overrides.toradiodevice = optarg;
+            overrides.toradio = optarg;
             override_toradio = true;
             break;
         case 'm':
-            overrides.frommicrophone = optarg;
-            override_frommicrophone = true;
+            overrides.frommic = optarg;
+            override_frommic = true;
             break;
         case 's':
-            overrides.tospeakers = optarg;
-            override_tospeakers = true;
+            overrides.tospeaker = optarg;
+            override_tospeaker = true;
             break;
         case 'a':
             overrides.call = optarg;
             override_call = true;
-            break;
-        case 'l':
-            overrides.locator = optarg;
-            override_locator = true;
             break;
         default:
             usage();
@@ -243,45 +248,60 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* Parse config file */
-    if (!parse_config_file(config_file, config)) {
-        fprintf(stderr, "Failed to parse config file. Using command line values only.\n");
+    /* Parse config file, or create it from CLI options if not found */
+    {
+        std::ifstream probe(config_file);
+        bool file_found = probe.is_open();
+        probe.close();
+
+        if (file_found) {
+            if (!parse_config_file(config_file, config)) {
+                fprintf(stderr, "Failed to parse config file '%s'.\n", config_file);
+            }
+        } else {
+            bool any_override = override_fromradio || override_toradio ||
+                                override_frommic   || override_tospeaker || override_call;
+            if (any_override) {
+                if (write_config_file(config_file, overrides))
+                    fprintf(stderr, "Config file '%s' not found — created from command line options.\n",
+                            config_file);
+            } else {
+                fprintf(stderr, "Warning: config file '%s' not found and no options given.\n",
+                        config_file);
+            }
+        }
     }
 
     /* Apply command line overrides */
-    if (override_fromradio) config.fromradiodevice = overrides.fromradiodevice;
-    if (override_toradio) config.toradiodevice = overrides.toradiodevice;
-    if (override_frommicrophone) config.frommicrophone = overrides.frommicrophone;
-    if (override_tospeakers) config.tospeakers = overrides.tospeakers;
+    if (override_fromradio) config.fromradio = overrides.fromradio;
+    if (override_toradio) config.toradio = overrides.toradio;
+    if (override_frommic) config.frommic = overrides.frommic;
+    if (override_tospeaker) config.tospeaker = overrides.tospeaker;
     if (override_call) config.call = overrides.call;
-    if (override_locator) config.locator = overrides.locator;
 
     /* Validate configuration based on mode */
     if (transmit_mode) {
-        if (config.frommicrophone.empty() || config.toradiodevice.empty()) {
-            fprintf(stderr, "Error: TX mode requires --frommicrophone and --toradiodevice\n");
+        if (config.frommic.empty() || config.toradio.empty()) {
+            fprintf(stderr, "Error: TX mode requires --frommic and --toradio\n");
             usage();
             return 1;
         }
         fprintf(stderr, "Starting in TRANSMIT mode\n");
-        fprintf(stderr, "  Microphone: %s\n", config.frommicrophone.c_str());
-        fprintf(stderr, "  Radio out:  %s\n", config.toradiodevice.c_str());
+        fprintf(stderr, "  Microphone: %s\n", config.frommic.c_str());
+        fprintf(stderr, "  Radio out:  %s\n", config.toradio.c_str());
     } else {
-        if (config.fromradiodevice.empty() || config.tospeakers.empty()) {
-            fprintf(stderr, "Error: RX mode requires --fromradiodevice and --tospeakers\n");
+        if (config.fromradio.empty() || config.tospeaker.empty()) {
+            fprintf(stderr, "Error: RX mode requires --fromradio and --tospeaker\n");
             usage();
             return 1;
         }
         fprintf(stderr, "Starting in RECEIVE mode\n");
-        fprintf(stderr, "  Radio in:  %s\n", config.fromradiodevice.c_str());
-        fprintf(stderr, "  Speakers:  %s\n", config.tospeakers.c_str());
+        fprintf(stderr, "  Radio in:  %s\n", config.fromradio.c_str());
+        fprintf(stderr, "  Speakers:  %s\n", config.tospeaker.c_str());
     }
 
     if (!config.call.empty()) {
         fprintf(stderr, "  Call:      %s\n", config.call.c_str());
-    }
-    if (!config.locator.empty()) {
-        fprintf(stderr, "  Locator:   %s\n", config.locator.c_str());
     }
 
     /* Set up signal handler for graceful shutdown */
@@ -296,7 +316,7 @@ int main(int argc, char *argv[]) {
         RadaeEncoder encoder;
 
         fprintf(stderr, "Opening audio devices...\n");
-        if (!encoder.open(config.frommicrophone, config.toradiodevice)) {
+        if (!encoder.open(config.frommic, config.toradio)) {
             fprintf(stderr, "Error: Failed to open encoder devices\n");
             rade_finalize();
             return 1;
@@ -325,7 +345,7 @@ int main(int argc, char *argv[]) {
         RadaeDecoder decoder;
 
         fprintf(stderr, "Opening audio devices...\n");
-        if (!decoder.open(config.fromradiodevice, config.tospeakers)) {
+        if (!decoder.open(config.fromradio, config.tospeaker)) {
             fprintf(stderr, "Error: Failed to open decoder devices\n");
             rade_finalize();
             return 1;

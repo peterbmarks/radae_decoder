@@ -223,6 +223,44 @@ static uint32_t write_iq_real(FILE *f, int16_t *out_buf,
     return (uint32_t)(n * (int)sizeof(int16_t));
 }
 
+/* ---- EOO bit encoding ---- */
+
+/* Encode callsign and gridsquare into EOO bits (+/-1 float form).
+ * Layout:
+ *   bits   0–111 : callsign   (16 chars × 7 bits, MSB first, null-padded)
+ *   bits 112–167 : gridsquare ( 8 chars × 7 bits, MSB first, null-padded)
+ *   bits 168+    : unused (+1) */
+static void encode_eoo_bits(struct rade *r,
+                             const char *callsign,
+                             const char *gridsquare) {
+    int n = rade_n_eoo_bits(r);
+    float *bits = malloc((size_t)n * sizeof(float));
+    if (!bits) return;
+
+    /* default all bits to +1 */
+    for (int i = 0; i < n; i++) bits[i] = 1.0f;
+
+    /* encode one fixed-width 7-bit ASCII field */
+    #define ENCODE_FIELD(str, max_chars, start_bit) do { \
+        const char *_s = (str) ? (str) : ""; \
+        int _len = (int)strlen(_s); \
+        for (int _i = 0; _i < (max_chars); _i++) { \
+            int _bit = (start_bit) + _i * 7; \
+            if (_bit + 7 > n) break; \
+            unsigned char _uc = (_i < _len) ? (unsigned char)_s[_i] : 0; \
+            for (int _b = 6; _b >= 0; _b--) \
+                bits[_bit + (6 - _b)] = ((_uc >> _b) & 1) ? 1.0f : -1.0f; \
+        } \
+    } while (0)
+
+    ENCODE_FIELD(callsign,   16,   0);   /* bits   0–111 */
+    ENCODE_FIELD(gridsquare,  8, 112);   /* bits 112–167 */
+    #undef ENCODE_FIELD
+
+    rade_tx_set_eoo_bits(r, bits);
+    free(bits);
+}
+
 /* ---- Usage ---- */
 
 static void usage(void) {
@@ -234,8 +272,10 @@ static void usage(void) {
             "              (resampled to %d Hz / mixed to mono internally)\n"
             "  Output WAV: mono 16-bit PCM @ %d Hz (RADE modulated signal)\n\n"
             "options:\n"
-            "  -h, --help     Show this help\n"
-            "  -v LEVEL       Verbosity: 0=quiet  1=normal (default)  2=verbose\n",
+            "  -h, --help              Show this help\n"
+            "  -v LEVEL                Verbosity: 0=quiet  1=normal (default)  2=verbose\n"
+            "  -c, --callsign CALL     Station callsign embedded in EOO frame (max 16 chars)\n"
+            "  -g, --gridsquare GRID   Maidenhead gridsquare embedded in EOO frame (max 8 chars)\n",
             RADE_FS_SPEECH, RADE_FS);
 }
 
@@ -243,16 +283,22 @@ static void usage(void) {
 
 int main(int argc, char *argv[]) {
     int verbose = 1;
+    const char *callsign   = NULL;
+    const char *gridsquare = NULL;
     int opt;
     static struct option long_options[] = {
-        {"help", no_argument, NULL, 'h'},
-        {NULL,   0,           NULL, 0 }
+        {"help",       no_argument,       NULL, 'h'},
+        {"callsign",   required_argument, NULL, 'c'},
+        {"gridsquare", required_argument, NULL, 'g'},
+        {NULL,         0,                 NULL, 0 }
     };
 
-    while ((opt = getopt_long(argc, argv, "hv:", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hv:c:g:", long_options, NULL)) != -1) {
         switch (opt) {
             case 'h': usage(); return 0;
             case 'v': verbose = atoi(optarg); break;
+            case 'c': callsign   = optarg; break;
+            case 'g': gridsquare = optarg; break;
             default:  usage(); return 1;
         }
     }
@@ -405,6 +451,7 @@ int main(int argc, char *argv[]) {
 
     /* ---------------------------------------------------- end-of-over frame */
     {
+        encode_eoo_bits(r, callsign, gridsquare);
         int n_out = rade_tx_eoo(r, eoo_out);
         total_bytes += write_iq_real(fout, out_buf, eoo_out, n_out);
     }
@@ -417,6 +464,10 @@ int main(int argc, char *argv[]) {
     /* ------------------------------------------------------------ summary */
     if (verbose >= 1) {
         fprintf(stderr, "Modem frames: %d + EOO\n", mf_count);
+        if (callsign || gridsquare)
+            fprintf(stderr, "EOO: callsign='%s'  gridsquare='%s'\n",
+                    callsign   ? callsign   : "",
+                    gridsquare ? gridsquare : "");
         fprintf(stderr, "Output: %s  %.1f s  (%u bytes)\n",
                 output_file, (double)total_bytes / (2.0 * RADE_FS), total_bytes);
     }

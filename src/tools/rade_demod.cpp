@@ -46,8 +46,11 @@
 
 #include "rade_api.h"
 #include "rade_dsp.h"
+extern "C" {
 #include "fargan.h"
 #include "lpcnet.h"
+}
+#include "EooCallsignDecoder.hpp"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -145,7 +148,7 @@ static float *wav_read_mono_float(FILE *f, const wav_info *info, long *n_out) {
     long  total = (long)info->data_size / (bps / 8);
     long  mono  = total / nch;
 
-    float *buf = malloc((size_t)mono * sizeof(float));
+    float *buf = (float *)malloc((size_t)mono * sizeof(float));
     if (!buf) return NULL;
 
     for (long i = 0; i < mono; i++) {
@@ -206,15 +209,15 @@ static void wav_write_header(FILE *f, int sample_rate, uint32_t data_bytes) {
 static float *resample_linear(const float *in, long n_in,
                               int in_rate, int out_rate, long *n_out) {
     if (in_rate == out_rate) {
-        float *out = malloc((size_t)n_in * sizeof(float));
+        float *out = (float *)malloc((size_t)n_in * sizeof(float));
         if (out) memcpy(out, in, (size_t)n_in * sizeof(float));
         *n_out = n_in;
         return out;
     }
-    if (n_in < 2) { *n_out = 0; return malloc(1); }
+    if (n_in < 2) { *n_out = 0; return (float *)malloc(1); }
 
     *n_out = (long)((double)n_in * out_rate / in_rate);
-    float *out = malloc((size_t)*n_out * sizeof(float));
+    float *out = (float *)malloc((size_t)*n_out * sizeof(float));
     if (!out) return NULL;
 
     double step = (double)in_rate / (double)out_rate;   /* input samples per output sample */
@@ -263,6 +266,8 @@ int main(int argc, char *argv[]) {
     }
     if (argc - optind != 2) { usage(); return 1; }
 
+    EooCallsignDecoder eooCallsignDecoder;
+
     const char *input_file  = argv[optind];
     const char *output_file = argv[optind + 1];
 
@@ -310,7 +315,7 @@ int main(int argc, char *argv[]) {
 
     /* --------------------------------------------------------- Hilbert → IQ */
     init_hilbert();
-    RADE_COMP *iq = malloc((size_t)n_8k * sizeof(RADE_COMP));
+    RADE_COMP *iq = (RADE_COMP *)malloc((size_t)n_8k * sizeof(RADE_COMP));
     if (!iq) {
         fprintf(stderr, "rade_demod: malloc failed (IQ buffer)\n");
         free(audio);
@@ -334,8 +339,8 @@ int main(int argc, char *argv[]) {
 
     int flags = (verbose < 2) ? RADE_VERBOSE_0 : 0;
     /* model_name is ignored in the nopy build (built-in weights) */
-    char *model_name = "model19_check3/checkpoints/checkpoint_epoch_100.pth";
-    struct rade *r = rade_open(model_name, flags);
+    const char *model_name = "model19_check3/checkpoints/checkpoint_epoch_100.pth";
+    struct rade *r = rade_open((char *)model_name, flags);
     if (!r) {
         fprintf(stderr, "rade_demod: rade_open failed\n");
         free(iq);
@@ -347,9 +352,9 @@ int main(int argc, char *argv[]) {
     int n_features_out = rade_n_features_in_out(r);
     int n_eoo_bits     = rade_n_eoo_bits(r);
 
-    RADE_COMP *rx_buf     = malloc((size_t)nin_max        * sizeof(RADE_COMP));
-    float     *feat_buf   = malloc((size_t)n_features_out * sizeof(float));
-    float     *eoo_buf    = malloc((size_t)n_eoo_bits      * sizeof(float));
+    RADE_COMP *rx_buf     = (RADE_COMP *)malloc((size_t)nin_max        * sizeof(RADE_COMP));
+    float     *feat_buf   = (float *)   malloc((size_t)n_features_out * sizeof(float));
+    float     *eoo_buf    = (float *)   malloc((size_t)n_eoo_bits      * sizeof(float));
     if (!rx_buf || !feat_buf || !eoo_buf) {
         fprintf(stderr, "rade_demod: malloc failed\n");
         free(iq); free(rx_buf); free(feat_buf); free(eoo_buf);
@@ -401,7 +406,12 @@ int main(int argc, char *argv[]) {
 
         int has_eoo = 0;
         int n_out   = rade_rx(r, feat_buf, &has_eoo, eoo_buf, rx_buf);
-
+        if(has_eoo) {
+            std::string callsign;
+            if(eooCallsignDecoder.decode(eoo_buf, nin, callsign)) {
+                fprintf(stderr, "Callsign = '%s'\n", callsign.c_str());
+            }
+        }
         if (has_eoo && verbose >= 1)
             fprintf(stderr, "End-of-over at modem frame %d\n", mf_count);
 

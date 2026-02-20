@@ -92,8 +92,9 @@ set_target_properties(rade PROPERTIES
 # add_executable(real2iq src/tools/real2iq.c)
 # target_link_libraries(real2iq m)
 
-# add_executable(rade_demod src/tools/rade_demod.c)
-# target_link_libraries(rade_demod rade opus m)
+# Reads a RADE WAV file and writes a decoded audio WAV
+add_executable(rade_demod src/tools/rade_demod.cpp)
+target_link_libraries(rade_demod rade opus m)
 
 # Reads a WAV file containing speech audio and writes a WAV
 # file containing RADE OFDM encoded audio.

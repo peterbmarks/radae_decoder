@@ -47,6 +47,9 @@ public:
     int  spectrum_bins()          const { return SPECTRUM_BINS; }
     float spectrum_sample_rate()  const { return 8000.f; } // always at modem rate
 
+    /* callsign (thread-safe via mutex) --------------------------------------- */
+    std::string last_callsign() const;
+
 private:
     void processing_loop();
 
@@ -87,6 +90,10 @@ private:
     float              fft_window_[FFT_SIZE]      = {};
     float              spectrum_mag_[SPECTRUM_BINS] = {};   // dB magnitudes
     mutable std::mutex spectrum_mutex_;
+
+    /* ── EOO callsign ───────────────────────────────────────────────────────── */
+    std::string        last_callsign_;
+    mutable std::mutex callsign_mutex_;
 
     /* ── Thread & atomics ─────────────────────────────────────────────────── */
     std::thread        thread_;

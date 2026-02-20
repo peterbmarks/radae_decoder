@@ -1,4 +1,5 @@
 #include "rade_decoder.h"
+#include "EooCallsignDecoder.hpp"
 
 #include <cmath>
 #include <cstring>
@@ -199,6 +200,12 @@ void RadaeDecoder::get_spectrum(float* out, int n) const
     std::memcpy(out, spectrum_mag_, static_cast<size_t>(count) * sizeof(float));
 }
 
+std::string RadaeDecoder::last_callsign() const
+{
+    std::lock_guard<std::mutex> lock(callsign_mutex_);
+    return last_callsign_;
+}
+
 /* ── open / close ────────────────────────────────────────────────────── */
 
 bool RadaeDecoder::open(const std::string& input_hw_id,
@@ -337,6 +344,11 @@ void RadaeDecoder::close()
     freq_offset_  = 0.0f;
     input_level_  = 0.0f;
     output_level_ = 0.0f;
+
+    {
+        std::lock_guard<std::mutex> lk(callsign_mutex_);
+        last_callsign_.clear();
+    }
 }
 
 /* ── start / stop ────────────────────────────────────────────────────── */
@@ -446,6 +458,8 @@ void RadaeDecoder::processing_loop()
     int nin_max        = rade_nin_max(rade_);
     int n_features_out = rade_n_features_in_out(rade_);
     int n_eoo_bits     = rade_n_eoo_bits(rade_);
+
+    EooCallsignDecoder eoo_decoder;
 
     /* allocate working buffers */
     std::vector<RADE_COMP> rx_buf(static_cast<size_t>(nin_max));
@@ -565,6 +579,15 @@ void RadaeDecoder::processing_loop()
         int has_eoo = 0;
         int n_out = rade_rx(rade_, feat_buf.data(), &has_eoo,
                             eoo_buf.data(), rx_buf.data());
+
+        /* decode EOO callsign if present */
+        if (has_eoo) {
+            std::string callsign;
+            if (eoo_decoder.decode(eoo_buf.data(), n_eoo_bits / 2, callsign)) {
+                std::lock_guard<std::mutex> lk(callsign_mutex_);
+                last_callsign_ = callsign;
+            }
+        }
 
         /* update sync status */
         bool now_synced = (rade_sync(rade_) != 0);

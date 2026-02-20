@@ -238,11 +238,14 @@ static gboolean on_meter_tick(gpointer /*data*/)
 
     /* ── RX mode ─────────────────────────────────────────────────────── */
     if (!g_decoder) return TRUE;
-
+    std::string cs = g_decoder->last_callsign();
+    char buf[256];
     if (!g_decoder->is_running()) {
         /* decoder stopped itself (e.g. file playback finished) */
         stop_all();
-        set_status("Playback finished.");
+        std::snprintf(buf, sizeof buf,
+                          "Playback finished. %s", cs.c_str());
+        set_status(buf);
         return FALSE;
     }
 
@@ -265,15 +268,31 @@ static gboolean on_meter_tick(gpointer /*data*/)
     }
 
     /* update status with sync info */
+    
     if (g_decoder->is_synced()) {
-        char buf[128];
-        std::snprintf(buf, sizeof buf,
-                      "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz",
-                      static_cast<double>(g_decoder->snr_dB()),
-                      static_cast<double>(g_decoder->freq_offset()));
+        
+        if (cs.empty()) {
+            std::snprintf(buf, sizeof buf,
+                          "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz",
+                          static_cast<double>(g_decoder->snr_dB()),
+                          static_cast<double>(g_decoder->freq_offset()));
+        } else {
+            std::snprintf(buf, sizeof buf,
+                          "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz  Callsign: %s",
+                          static_cast<double>(g_decoder->snr_dB()),
+                          static_cast<double>(g_decoder->freq_offset()),
+                          cs.c_str());
+        }
         set_status(buf);
     } else {
-        set_status("Searching for signal\xe2\x80\xa6");
+        if (cs.empty()) {
+            std::snprintf(buf, sizeof buf,
+                          "Searching for signal\xe2\x80\xa6");
+        } else {
+            std::snprintf(buf, sizeof buf,
+                          "Searching for signal\xe2\x80\xa6 Last heard: %s", cs.c_str());
+        }
+        set_status(buf);
     }
 
     return TRUE;

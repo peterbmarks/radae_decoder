@@ -12,7 +12,6 @@ void audio_terminate() { Pa_Terminate();  }
 
 std::vector<AudioDevice> audio_enumerate_capture_devices()
 {
-    fprintf(stderr, "Enumerating PortAudio capture devices\n");
     std::vector<AudioDevice> devices;
     int count = Pa_GetDeviceCount();
     for (int i = 0; i < count; i++) {

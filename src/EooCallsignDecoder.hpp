@@ -1,24 +1,31 @@
 /**
  * EooCallsignDecoder.hpp
  *
- * Self-contained C++ class that decodes the operator callsign embedded in a
- * RADE End-of-Over (EOO) float symbol buffer.
+ * Self-contained C++ class that encodes and decodes the operator callsign
+ * carried in a RADE End-of-Over (EOO) float symbol buffer.
  *
  * All required codec2 logic is inlined here:
  *   - HRA_56_56 LDPC(112,56) parity matrix
- *   - Golden-prime deinterleaver (N=56, b=37)
+ *   - Golden-prime interleaver/deinterleaver (N=56, b=37)
  *   - phi0 lookup table
  *   - QPSK soft demodulator (Demod2D / Somap)
  *   - Sum-product belief-propagation LDPC decoder
+ *   - Systematic LDPC encoder
  *   - rade_text CRC-8 and 6-bit OTA character mapping
  *
  * No external dependencies beyond standard C++ headers.
  *
- * Usage:
+ * Usage (decode):
  *   EooCallsignDecoder dec;
  *   std::string callsign;
  *   if (dec.decode(eooOut, rade_n_eoo_bits(dv) / 2, callsign))
  *       std::cout << callsign << "\n";
+ *
+ * Usage (encode):
+ *   EooCallsignDecoder dec;
+ *   std::vector<float> eooOut(rade_n_eoo_bits(dv));
+ *   dec.encode("W1AW", eooOut.data(), eooOut.size());
+ *   rade_tx_set_eoo_bits(dv, eooOut.data());
  *
  * Provenance / License:
  *   Derived from codec2 1.2.0 (David Rowe et al.) and FreeDV GUI
@@ -32,7 +39,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -538,6 +544,49 @@ static int eoo_run_ldpc_decoder(uint8_t out_char[], float input[],
     return iter;
 }
 
+// ---------------------------------------------------------------------------
+// 7. LDPC encoder  (encode() in codec2/src/mpdecode_core.c)
+//
+//    Systematic accumulator code: each parity bit is the XOR-accumulation of
+//    the data bits indicated by H_rows, chained with the previous parity bit.
+//    Hardcoded for HRA_56_56 (NP=56, max_row_weight=3).
+// ---------------------------------------------------------------------------
+static void eoo_ldpc_encode(const uint8_t ibits[56], uint8_t pbits[56])
+{
+    unsigned int prev = 0;
+    for (int p = 0; p < kNumParityBits; p++) {
+        unsigned int par = 0;
+        for (int i = 0; i < kMaxRowWeight; i++) {
+            const int ind = kHra5656Rows[p + i * kNumParityBits];
+            if (ind) par += ibits[ind - 1];
+        }
+        const unsigned int tmp = (par + prev) & 1u;
+        prev      = tmp;
+        pbits[p]  = static_cast<uint8_t>(tmp);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 8. Golden-prime bit interleaver  (gp_interleave_bits() in gp_interleaver.c)
+//
+//    Hardcoded for N=56, b=37.  Operates on 112 individual bits stored as
+//    char 0/1.  Each consecutive pair is treated as one "symbol" so the
+//    mapping stays compatible with gp_interleave_comp / gp_deinterleave_comp.
+// ---------------------------------------------------------------------------
+static void gp_interleave_bits_56(char out[112], const char in[112])
+{
+    // Pack each pair into a nibble, permute, unpack
+    uint8_t temp[56];
+    for (int i = 0; i < 56; i++) {
+        const int j = (37 * i) % 56;
+        temp[j] = static_cast<uint8_t>(((in[i * 2] & 1) << 1) | (in[i * 2 + 1] & 1));
+    }
+    for (int i = 0; i < 56; i++) {
+        out[i * 2]     = static_cast<char>(temp[i] >> 1);
+        out[i * 2 + 1] = static_cast<char>(temp[i] & 1);
+    }
+}
+
 } // anonymous namespace
 
 
@@ -630,6 +679,78 @@ public:
         return true;
     }
 
+    /**
+     * Encode a callsign into QPSK symbols for an EOO float buffer.
+     *
+     * Mirrors rade_text_generate_tx_string() from rade_text.c.
+     * Pass the returned buffer directly to rade_tx_set_eoo_bits().
+     *
+     * @param callsign   Callsign string (up to 8 chars).
+     *                   Supported characters: A–Z (case-insensitive), 0–9,
+     *                   and the punctuation set &'()*+,-./ (ASCII 38–47).
+     *                   Unsupported characters are silently skipped.
+     * @param syms       Output float buffer.  Interleaved I/Q pairs:
+     *                   syms[2*i] = real part, syms[2*i+1] = imag part.
+     * @param floatCount Total size of syms[] in floats = rade_n_eoo_bits(dv).
+     *                   The first 112 floats carry the 56 LDPC-encoded QPSK
+     *                   symbols.  floats[112..floatCount-1] are filled with
+     *                   the known filler sequence required by the RADE decoder.
+     */
+    void encode(const std::string &callsign, float *syms, int floatCount) const
+    {
+        // --- Step 1: ASCII callsign → 6-bit OTA encoding ------------------
+        //   tmp[0]    = CRC-8 placeholder
+        //   tmp[1..8] = OTA-encoded callsign characters
+        char tmp[9] = {};
+        asciiToOta(callsign, tmp + 1, 8);
+
+        // --- Step 2: CRC-8 over the OTA bytes -----------------------------
+        const int otaLen = static_cast<int>(std::strlen(tmp + 1));
+        tmp[0] = static_cast<char>(crc8(tmp + 1, otaLen));
+
+        // --- Step 3: pack 9 bytes into 56 information bits ----------------
+        //   ibits[0..7]  = CRC-8 byte, standard LSB-first packing
+        //   ibits[8..55] = OTA chars, 6 bits each, LSB-first
+        uint8_t ibits[56] = {};
+        for (int b = 0; b < 8; b++)
+            if (tmp[0] & (1 << b)) ibits[b] = 1;
+        for (int b = 8; b < 56; b++) {
+            const int off = b - 8;
+            if (tmp[1 + off / 6] & (1 << (off % 6))) ibits[b] = 1;
+        }
+
+        // --- Step 4: LDPC encode → 56 parity bits -------------------------
+        uint8_t pbits[56] = {};
+        eoo_ldpc_encode(ibits, pbits);
+
+        // --- Step 5: build 112-bit codeword (info || parity) --------------
+        char bits[112];
+        for (int i = 0; i < 56; i++) bits[i]      = static_cast<char>(ibits[i]);
+        for (int i = 0; i < 56; i++) bits[56 + i] = static_cast<char>(pbits[i]);
+
+        // --- Step 6: golden-prime interleave ------------------------------
+        char interleaved[112];
+        gp_interleave_bits_56(interleaved, bits);
+
+        // --- Step 7: map bit pairs to QPSK symbols ------------------------
+        //   (0,0) → ( 1,  0)    (0,1) → ( 0,  1)
+        //   (1,0) → ( 0, -1)    (1,1) → (-1,  0)
+        for (int i = 0; i < 56; i++) {
+            const int b0 = interleaved[2 * i];
+            const int b1 = interleaved[2 * i + 1];
+            if      (!b0 && !b1) { syms[2*i] =  1.0f; syms[2*i+1] =  0.0f; }
+            else if (!b0 &&  b1) { syms[2*i] =  0.0f; syms[2*i+1] =  1.0f; }
+            else if ( b0 && !b1) { syms[2*i] =  0.0f; syms[2*i+1] = -1.0f; }
+            else                 { syms[2*i] = -1.0f; syms[2*i+1] =  0.0f; }
+        }
+
+        // --- Step 8: fill remainder with the known filler sequence --------
+        //   Alternating (1,0) QPSK symbols: syms[112]=1, syms[113]=0, ...
+        //   Required by the RADE decoder; zeros cause decoding problems.
+        for (int i = 112; i < floatCount; i++)
+            syms[i] = (i % 2 == 0) ? 1.0f : 0.0f;
+    }
+
 private:
     // CRC-8 with generator 0x1D  (calculateCRC8_ in rade_text.c).
     // Stops at the first null byte.
@@ -648,6 +769,23 @@ private:
             crc = acc;
         }
         return crc;
+    }
+
+    // ASCII callsign → 6-bit OTA values  (convert_callsign_to_ota_string_ in rade_text.c)
+    // Unsupported characters are silently skipped.
+    static void asciiToOta(const std::string &callsign, char *out, int maxLen)
+    {
+        int outidx = 0;
+        for (char ch : callsign) {
+            if (outidx >= maxLen) break;
+            const unsigned char c = static_cast<unsigned char>(ch);
+            if      (c >= 38 && c <= 47)   out[outidx++] = static_cast<char>(c - 37);
+            else if (c >= '0' && c <= '9') out[outidx++] = static_cast<char>(c - '0' + 10);
+            else if (c >= 'A' && c <= 'Z') out[outidx++] = static_cast<char>(c - 'A' + 20);
+            else if (c >= 'a' && c <= 'z') out[outidx++] = static_cast<char>(c - 'a' + 20);
+            // else: skip unsupported character
+        }
+        out[outidx] = 0;
     }
 
     // 6-bit OTA value → ASCII  (convert_ota_string_to_callsign_ in rade_text.c)

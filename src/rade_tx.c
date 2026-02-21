@@ -184,8 +184,38 @@ int rade_tx_state_eoo(rade_tx_state *tx, RADE_COMP *tx_out) {
     int n_eoo;
     const RADE_COMP *eoo = rade_ofdm_get_eoo(&tx->ofdm, &n_eoo);
 
-    /* Copy pre-computed EOO frame */
+    /* Copy pre-computed EOO frame (pilots in place, data slots are zeros) */
     memcpy(tx_out, eoo, sizeof(RADE_COMP) * n_eoo);
+
+    /* Modulate eoo_bits into the data symbol slots (positions 2..Ns).
+       The pre-computed frame has zeros there; overwrite with the QPSK
+       symbols encoded from the callsign (or all-zero if none was set).
+       eoo_bits layout: [(Ns-1) data symbols][Nc carriers][I,Q] */
+    {
+        int Nc  = tx->ofdm.nc;
+        int M   = tx->ofdm.m;
+        int Ncp = tx->ofdm.ncp;
+        int Ns  = tx->ofdm.ns;
+        int n_data = Ns - 1;   /* data slots at frame positions 2..Ns */
+
+        RADE_COMP freq_sym[RADE_NC];
+        RADE_COMP time_sym[RADE_M];
+
+        for (int d = 0; d < n_data; d++) {
+            int frame_pos = d + 2;   /* symbol index in EOO frame */
+
+            /* Build frequency-domain symbol from stored eoo_bits */
+            for (int c = 0; c < Nc; c++) {
+                int bit_idx = (d * Nc + c) * 2;
+                freq_sym[c].real = tx->eoo_bits[bit_idx];
+                freq_sym[c].imag = tx->eoo_bits[bit_idx + 1];
+            }
+
+            /* IDFT → time domain, insert CP, write to tx_out */
+            rade_ofdm_idft(&tx->ofdm, time_sym, freq_sym);
+            rade_ofdm_insert_cp(&tx->ofdm, &tx_out[frame_pos * (M + Ncp)], time_sym);
+        }
+    }
 
     /* Apply Tx BPF if enabled */
     if (tx->bpf_en) {

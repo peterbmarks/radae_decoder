@@ -48,6 +48,9 @@ public:
     void set_bpf_enabled(bool en) { bpf_enabled_.store(en, std::memory_order_relaxed); }
     bool get_bpf_enabled() const  { return bpf_enabled_.load(std::memory_order_relaxed); }
 
+    /* EOO callsign (applied to rade_ immediately if open, stored for next open()) */
+    void set_callsign(const std::string& cs);
+
     /* spectrum of TX output (thread-safe via mutex) ------------------------- */
     static constexpr int FFT_SIZE      = 512;
     static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 256
@@ -92,4 +95,8 @@ private:
     float              fft_window_[FFT_SIZE]       = {};
     float              spectrum_mag_[SPECTRUM_BINS] = {};
     mutable std::mutex spectrum_mutex_;
+
+    /* ── EOO callsign ────────────────────────────────────────────────────── */
+    std::string        callsign_;
+    void               apply_callsign();   // encode callsign_ → rade_tx_set_eoo_bits
 };

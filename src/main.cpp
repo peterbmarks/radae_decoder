@@ -352,6 +352,10 @@ static void start_encoder(int mic_idx, int radio_idx)
 
     if (g_bpf_switch)
         g_encoder->set_bpf_enabled(gtk_switch_get_active(GTK_SWITCH(g_bpf_switch)));
+    if (g_callsign_entry) {
+        const char* cs = gtk_entry_get_text(GTK_ENTRY(g_callsign_entry));
+        g_encoder->set_callsign(cs ? cs : "");
+    }
     g_encoder->start();
     set_btn_state(true);
     set_status("Transmitting\xe2\x80\xa6");

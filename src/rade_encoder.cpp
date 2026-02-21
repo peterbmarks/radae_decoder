@@ -14,6 +14,8 @@ extern "C" {
 #include "cpu_support.h"
 }
 
+#include "EooCallsignDecoder.hpp"
+
 /* ── streaming linear-interpolation resampler (same as rade_decoder.cpp) */
 
 static int resample_linear_stream(const float* in, int n_in,
@@ -89,6 +91,24 @@ void RadaeEncoder::get_spectrum(float* out, int n) const
 RadaeEncoder::RadaeEncoder()  = default;
 RadaeEncoder::~RadaeEncoder() { stop(); close(); }
 
+/* ── EOO callsign ────────────────────────────────────────────────────── */
+
+void RadaeEncoder::set_callsign(const std::string& cs)
+{
+    callsign_ = cs;
+    apply_callsign();
+}
+
+void RadaeEncoder::apply_callsign()
+{
+    if (!rade_) return;
+    int n = rade_n_eoo_bits(rade_);
+    std::vector<float> bits(static_cast<size_t>(n));
+    EooCallsignDecoder enc;
+    enc.encode(callsign_, bits.data(), n);
+    rade_tx_set_eoo_bits(rade_, bits.data());
+}
+
 /* ── open / close ────────────────────────────────────────────────────── */
 
 bool RadaeEncoder::open(const std::string& mic_hw_id,
@@ -116,6 +136,9 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
         stream_out_.close();
         return false;
     }
+
+    /* ── EOO callsign ────────────────────────────────────────────────── */
+    apply_callsign();
 
     /* ── LPCNet feature extractor ────────────────────────────────────── */
     lpcnet_ = lpcnet_encoder_create();

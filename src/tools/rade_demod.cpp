@@ -408,8 +408,10 @@ int main(int argc, char *argv[]) {
         int n_out   = rade_rx(r, feat_buf, &has_eoo, eoo_buf, rx_buf);
         if(has_eoo) {
             std::string callsign;
-            if(eooCallsignDecoder.decode(eoo_buf, nin, callsign)) {
+            if(eooCallsignDecoder.decode(eoo_buf, n_eoo_bits / 2, callsign)) {
                 fprintf(stderr, "Callsign = '%s'\n", callsign.c_str());
+            } else {
+                fprintf(stderr, "Callsign in EOO not decoded\n");
             }
         }
         if (has_eoo && verbose >= 1)

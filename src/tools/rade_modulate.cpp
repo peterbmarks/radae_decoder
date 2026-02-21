@@ -427,6 +427,7 @@ int main(int argc, char *argv[]) {
     /* ---------------------------------------------------- end-of-over frame */
     {
         int n_out = rade_tx_eoo(r, eoo_out);
+        fprintf(stderr, "Writing EOO Frame\n");
         total_bytes += write_iq_real(fout, out_buf, eoo_out, n_out);
     }
 

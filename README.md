@@ -437,15 +437,15 @@ rade_modulate [-v 0|1|2] <intput.wav> <output.wav>
 ### Encode: WAV → IQ
 ```
 sox ../voice.wav -r 16000 -t .s16 -c 1 - | \
-  ./src/lpcnet_demo -features /dev/stdin - | \
-  ./src/radae_tx > tx.iq
+  ./tools/lpcnet_demo -features /dev/stdin - | \
+  ./tools/radae_tx > tx.iq
 ```
 
 ### Decode: IQ → WAV
 ```
 cat tx.iq | \
-  ./src/radae_rx | \
-  ./src/lpcnet_demo -fargan-synthesis /dev/stdin - | \
+  ./tools/radae_rx | \
+  ./tools/lpcnet_demo -fargan-synthesis /dev/stdin - | \
   sox -t .s16 -r 16000 -c 1 - decoded.wav
 ```
 
@@ -460,9 +460,9 @@ usage: radae_rx [options]
 
 ```
 sox ../FDV_offair.wav -r 8000 -e float -b 32 -c 1 -t raw - | \
-./src/real2iq | \
-./src/radae_rx > features.f32
-./src/lpcnet_demo -fargan-synthesis features.f32 - | \
+./tools/real2iq | \
+./tools/radae_rx > features.f32
+./tools/lpcnet_demo -fargan-synthesis features.f32 - | \
 sox -t .s16 -r 16000 -c 1 - decoded.wav
 play decoded.wav
 ```

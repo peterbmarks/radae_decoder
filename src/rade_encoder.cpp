@@ -1,4 +1,5 @@
 #include "rade_encoder.h"
+#include "wav_recorder.h"
 
 #include <complex>
 #include <cmath>
@@ -75,6 +76,14 @@ static void fft_radix2(std::complex<float>* x, int N)
             }
         }
     }
+}
+
+/* ── set_recorder (thread-safe) ──────────────────────────────────────── */
+
+void RadaeEncoder::set_recorder(WavRecorder* rec)
+{
+    std::lock_guard<std::mutex> lock(recorder_mutex_);
+    recorder_ = rec;
 }
 
 /* ── get_spectrum (thread-safe read) ─────────────────────────────────── */
@@ -209,7 +218,8 @@ static void write_real_to_output(AudioStream& stream, const RADE_COMP* iq, int n
                                   double& resamp_frac, float& resamp_prev,
                                   std::atomic<float>& output_level,
                                   const std::atomic<bool>& running,
-                                  float tx_scale)
+                                  float tx_scale,
+                                  WavRecorder* recorder = nullptr)
 {
     (void)running;
 
@@ -240,6 +250,10 @@ static void write_real_to_output(AudioStream& stream, const RADE_COMP* iq, int n
         if (v < -32767.0f) v = -32767.0f;
         out_pcm[static_cast<size_t>(s)] = static_cast<int16_t>(v);
     }
+
+    /* record 8 kHz radio output if a recorder is attached */
+    if (recorder)
+        recorder->write(out_pcm.data(), n_resamp);
 
     /* write to audio output */
     stream.write(out_pcm.data(),
@@ -388,11 +402,15 @@ void RadaeEncoder::processing_loop()
                     }
                 }
 
-                write_real_to_output(stream_out_, tx_out.data(), n_out,
-                                     RADE_FS, rate_out_,
-                                     resamp_out_frac_, resamp_out_prev_,
-                                     output_level_, running_,
-                                     tx_scale_.load(std::memory_order_relaxed));
+                {
+                    std::lock_guard<std::mutex> lock(recorder_mutex_);
+                    write_real_to_output(stream_out_, tx_out.data(), n_out,
+                                         RADE_FS, rate_out_,
+                                         resamp_out_frac_, resamp_out_prev_,
+                                         output_level_, running_,
+                                         tx_scale_.load(std::memory_order_relaxed),
+                                         recorder_);
+                }
                 feat_count = 0;
             }
         }
@@ -404,11 +422,15 @@ void RadaeEncoder::processing_loop()
         int n_out = rade_tx_eoo(rade_, eoo_out.data());
         if (bpf_enabled_.load(std::memory_order_relaxed))
             rade_bpf_process(&bpf_, eoo_out.data(), eoo_out.data(), n_out);
-        write_real_to_output(stream_out_, eoo_out.data(), n_out,
-                             RADE_FS, rate_out_,
-                             resamp_out_frac_, resamp_out_prev_,
-                             output_level_, running_,
-                             tx_scale_.load(std::memory_order_relaxed));
+        {
+            std::lock_guard<std::mutex> lock(recorder_mutex_);
+            write_real_to_output(stream_out_, eoo_out.data(), n_out,
+                                 RADE_FS, rate_out_,
+                                 resamp_out_frac_, resamp_out_prev_,
+                                 output_level_, running_,
+                                 tx_scale_.load(std::memory_order_relaxed),
+                                 recorder_);
+        }
         /* drain the output buffer */
         stream_out_.stop();
         stream_out_.start();

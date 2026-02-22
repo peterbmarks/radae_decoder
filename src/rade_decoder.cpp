@@ -1,5 +1,6 @@
 #include "rade_decoder.h"
 #include "EooCallsignCodec.h"
+#include "wav_recorder.h"
 
 #include <cmath>
 #include <cstring>
@@ -189,6 +190,14 @@ static void fft_radix2(std::complex<float>* x, int N)
             }
         }
     }
+}
+
+/* ── set_recorder (thread-safe) ──────────────────────────────────────── */
+
+void RadaeDecoder::set_recorder(WavRecorder* rec)
+{
+    std::lock_guard<std::mutex> lock(recorder_mutex_);
+    recorder_ = rec;
 }
 
 /* ── get_spectrum (thread-safe read) ─────────────────────────────────── */
@@ -512,6 +521,13 @@ void RadaeDecoder::processing_loop()
                 if (err == AUDIO_ERROR) {
                     if (!running_.load(std::memory_order_relaxed)) break;
                     continue;
+                }
+
+                /* record raw 8 kHz radio input if a recorder is attached */
+                {
+                    std::lock_guard<std::mutex> lock(recorder_mutex_);
+                    if (recorder_)
+                        recorder_->write(capture_buf.data(), READ_FRAMES);
                 }
 
                 int n = READ_FRAMES;

@@ -6,6 +6,8 @@
 #include <thread>
 #include "audio_stream.h"
 
+class WavRecorder;   /* forward declaration */
+
 /* Forward declarations — avoids exposing C headers in this header */
 struct rade;
 struct LPCNetEncState;
@@ -51,6 +53,11 @@ public:
     /* EOO callsign (applied to rade_ immediately if open, stored for next open()) */
     void set_callsign(const std::string& cs);
 
+    /* recording (thread-safe) ----------------------------------------------- */
+    /* Set a WavRecorder to capture the 8 kHz RADE signal sent to the radio.
+     * Pass nullptr to stop recording.  Safe to call while running. */
+    void set_recorder(WavRecorder* rec);
+
     /* spectrum of TX output (thread-safe via mutex) ------------------------- */
     static constexpr int FFT_SIZE      = 512;
     static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 256
@@ -95,6 +102,10 @@ private:
     float              fft_window_[FFT_SIZE]       = {};
     float              spectrum_mag_[SPECTRUM_BINS] = {};
     mutable std::mutex spectrum_mutex_;
+
+    /* ── WAV recorder ─────────────────────────────────────────────────────── */
+    WavRecorder*       recorder_    = nullptr;
+    std::mutex         recorder_mutex_;
 
     /* ── EOO callsign ────────────────────────────────────────────────────── */
     std::string        callsign_;

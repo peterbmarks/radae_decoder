@@ -7,6 +7,8 @@
 #include <thread>
 #include "audio_stream.h"
 
+class WavRecorder;   /* forward declaration */
+
 /* Forward declaration — avoids exposing RADE/FARGAN C headers in this header */
 struct rade;
 
@@ -49,6 +51,11 @@ public:
 
     /* callsign (thread-safe via mutex) --------------------------------------- */
     std::string last_callsign() const;
+
+    /* recording (thread-safe) ----------------------------------------------- */
+    /* Set a WavRecorder to capture the raw 8 kHz radio input signal.
+     * Pass nullptr to stop recording.  Safe to call while running. */
+    void set_recorder(WavRecorder* rec);
 
 private:
     void processing_loop();
@@ -94,6 +101,10 @@ private:
     /* ── EOO callsign ───────────────────────────────────────────────────────── */
     std::string        last_callsign_;
     mutable std::mutex callsign_mutex_;
+
+    /* ── WAV recorder ─────────────────────────────────────────────────────── */
+    WavRecorder*       recorder_    = nullptr;
+    std::mutex         recorder_mutex_;
 
     /* ── Thread & atomics ─────────────────────────────────────────────────── */
     std::thread        thread_;

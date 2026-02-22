@@ -110,6 +110,7 @@ add_executable(radae_headless
     src/rade_decoder.cpp
     src/rade_encoder.cpp
     src/EooCallsignCodec.cpp
+    src/wav_recorder.cpp
     ${AUDIO_BACKEND_SRC}
 )
 target_link_libraries(radae_headless
@@ -143,6 +144,7 @@ add_executable(RADAE_Gui
     src/EooCallsignCodec.cpp
     src/spectrum_widget.cpp
     src/waterfall_widget.cpp
+    src/wav_recorder.cpp
     ${AUDIO_BACKEND_SRC}
 )
 

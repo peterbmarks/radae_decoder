@@ -11,6 +11,7 @@
 #include "rade_encoder.h"
 #include "spectrum_widget.h"
 #include "waterfall_widget.h"
+#include "wav_recorder.h"
 
 /* ── globals (single-window app) ────────────────────────────────────────── */
 
@@ -27,6 +28,9 @@ static std::vector<AudioDevice> g_tx_output_devices;
 static GtkWidget*               g_tx_input_combo     = nullptr;   // transmit mic input selector
 static GtkWidget*               g_tx_output_combo    = nullptr;   // transmit radio output selector
 static GtkWidget*               g_btn                = nullptr;   // start / stop
+static GtkWidget*               g_record_btn         = nullptr;   // record / stop-record
+static WavRecorder*             g_recorder           = nullptr;   // active WAV recorder
+static bool                     g_recording          = false;     // recording in progress
 static GtkWidget*               g_meter_in           = nullptr;   // input level meter
 static GtkWidget*               g_meter_out          = nullptr;   // output level meter
 static GtkWidget*               g_spectrum           = nullptr;   // spectrum widget
@@ -214,6 +218,10 @@ static void on_tx_level_changed(GtkRange* range, gpointer /*data*/)
 
 static void stop_all()
 {
+    /* detach recorder before joining threads (prevents use-after-free) */
+    if (g_decoder) g_decoder->set_recorder(nullptr);
+    if (g_encoder) g_encoder->set_recorder(nullptr);
+
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); }
     if (g_encoder) { g_encoder->stop(); g_encoder->close(); }
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
@@ -329,6 +337,8 @@ static void start_decoder(int in_idx, int out_idx)
     }
 
     g_decoder->start();
+    if (g_recording && g_recorder)
+        g_decoder->set_recorder(g_recorder);
     set_btn_state(true);
     set_status("Searching for signal\xe2\x80\xa6");
     g_timer = g_timeout_add(33, on_meter_tick, nullptr);   // ~30 fps
@@ -357,6 +367,8 @@ static void start_encoder(int mic_idx, int radio_idx)
         g_encoder->set_callsign(cs ? cs : "");
     }
     g_encoder->start();
+    if (g_recording && g_recorder)
+        g_encoder->set_recorder(g_recorder);
     set_btn_state(true);
     set_status("Transmitting\xe2\x80\xa6");
     g_timer = g_timeout_add(33, on_meter_tick, nullptr);
@@ -450,6 +462,58 @@ static gboolean on_bpf_switch_changed(GtkSwitch* sw, gboolean state, gpointer /*
     return TRUE;
 }
 
+/* record button: start/stop WAV recording */
+static void on_record_clicked(GtkButton* /*btn*/, gpointer /*data*/)
+{
+    if (!g_recording) {
+        /* ── start recording ── */
+        if (!g_recorder) g_recorder = new WavRecorder();
+
+        /* delete any existing recording.wav before opening */
+        std::remove("recording.wav");
+
+        if (!g_recorder->open("recording.wav")) {
+            set_status("Failed to create recording.wav");
+            delete g_recorder;
+            g_recorder = nullptr;
+            return;
+        }
+
+        g_recording = true;
+
+        /* update button appearance */
+        GtkStyleContext* ctx = gtk_widget_get_style_context(g_record_btn);
+        gtk_style_context_remove_class(ctx, "record-btn");
+        gtk_style_context_add_class   (ctx, "record-stop-btn");
+        gtk_button_set_label(GTK_BUTTON(g_record_btn), "Stop");
+
+        /* attach to whichever pipeline is currently running */
+        if (g_decoder) g_decoder->set_recorder(g_recorder);
+        if (g_encoder) g_encoder->set_recorder(g_recorder);
+
+    } else {
+        /* ── stop recording ── */
+
+        /* detach from pipelines first (waits for any in-progress write) */
+        if (g_decoder) g_decoder->set_recorder(nullptr);
+        if (g_encoder) g_encoder->set_recorder(nullptr);
+
+        if (g_recorder) {
+            g_recorder->close();
+            delete g_recorder;
+            g_recorder = nullptr;
+        }
+
+        g_recording = false;
+
+        /* restore button appearance */
+        GtkStyleContext* ctx = gtk_widget_get_style_context(g_record_btn);
+        gtk_style_context_remove_class(ctx, "record-stop-btn");
+        gtk_style_context_add_class   (ctx, "record-btn");
+        gtk_button_set_label(GTK_BUTTON(g_record_btn), "Record");
+    }
+}
+
 /* start / stop toggle */
 static void on_start_stop(GtkButton* /*btn*/, gpointer /*data*/)
 {
@@ -532,8 +596,13 @@ static void on_window_destroy(GtkWidget* /*w*/, gpointer /*data*/)
 {
     save_config();
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
+    /* detach recorder before stopping threads */
+    if (g_decoder) g_decoder->set_recorder(nullptr);
+    if (g_encoder) g_encoder->set_recorder(nullptr);
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); delete g_decoder; g_decoder = nullptr; }
     if (g_encoder) { g_encoder->stop(); g_encoder->close(); delete g_encoder; g_encoder = nullptr; }
+    /* finalise any open recording */
+    if (g_recorder) { g_recorder->close(); delete g_recorder; g_recorder = nullptr; }
 }
 
 /* ── file playback ─────────────────────────────────────────────────────── */
@@ -635,6 +704,24 @@ static void activate(GtkApplication* app, gpointer /*data*/)
             padding           : 3px 0;
         }
         button.stop-btn:hover  { background-color: #e74c3c; }
+
+        button.record-btn {
+            background-color  : #2980b9;
+            color             : white;
+            font-weight       : bold;
+            border-radius     : 4px;
+            padding           : 3px 0;
+        }
+        button.record-btn:hover { background-color: #3498db; }
+
+        button.record-stop-btn {
+            background-color  : #8e44ad;
+            color             : white;
+            font-weight       : bold;
+            border-radius     : 4px;
+            padding           : 3px 0;
+        }
+        button.record-stop-btn:hover { background-color: #9b59b6; }
 
         #status-label { color: #888; }
     )CSS", -1, nullptr);
@@ -868,6 +955,12 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     gtk_style_context_add_class(gtk_widget_get_style_context(g_btn), "start-btn");
     g_signal_connect(g_btn, "clicked", G_CALLBACK(on_start_stop), NULL);
     gtk_box_pack_start(GTK_BOX(btn_hbox), g_btn, TRUE, TRUE, 0);
+
+    g_record_btn = gtk_button_new_with_label("Record");
+    gtk_style_context_add_class(gtk_widget_get_style_context(g_record_btn), "record-btn");
+    gtk_widget_set_tooltip_text(g_record_btn, "Record radio audio to recording.wav");
+    g_signal_connect(g_record_btn, "clicked", G_CALLBACK(on_record_clicked), NULL);
+    gtk_box_pack_start(GTK_BOX(btn_hbox), g_record_btn, FALSE, FALSE, 0);
 
     GtkWidget* tx_label = gtk_label_new("TX");
     gtk_box_pack_start(GTK_BOX(btn_hbox), tx_label, FALSE, FALSE, 0);

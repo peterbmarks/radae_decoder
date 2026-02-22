@@ -218,12 +218,13 @@ static void on_tx_level_changed(GtkRange* range, gpointer /*data*/)
 
 static void stop_all()
 {
-    /* detach recorder before joining threads (prevents use-after-free) */
-    if (g_decoder) g_decoder->set_recorder(nullptr);
-    if (g_encoder) g_encoder->set_recorder(nullptr);
-
+    /* Stop threads first so the EOO frame is flushed into the recorder,
+       then detach the recorder once the threads have finished. */
     if (g_decoder) { g_decoder->stop(); g_decoder->close(); }
     if (g_encoder) { g_encoder->stop(); g_encoder->close(); }
+
+    if (g_decoder) g_decoder->set_recorder(nullptr);
+    if (g_encoder) g_encoder->set_recorder(nullptr);
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
     if (g_meter_in)  meter_widget_update(g_meter_in, 0.f);
     if (g_meter_out) meter_widget_update(g_meter_out, 0.f);
@@ -510,7 +511,7 @@ static void on_record_clicked(GtkButton* /*btn*/, gpointer /*data*/)
         GtkStyleContext* ctx = gtk_widget_get_style_context(g_record_btn);
         gtk_style_context_remove_class(ctx, "record-stop-btn");
         gtk_style_context_add_class   (ctx, "record-btn");
-        gtk_button_set_label(GTK_BUTTON(g_record_btn), "Record");
+        gtk_button_set_label(GTK_BUTTON(g_record_btn), " Record ");
     }
 }
 
@@ -956,7 +957,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     g_signal_connect(g_btn, "clicked", G_CALLBACK(on_start_stop), NULL);
     gtk_box_pack_start(GTK_BOX(btn_hbox), g_btn, TRUE, TRUE, 0);
 
-    g_record_btn = gtk_button_new_with_label("Record");
+    g_record_btn = gtk_button_new_with_label(" Record ");
     gtk_style_context_add_class(gtk_widget_get_style_context(g_record_btn), "record-btn");
     gtk_widget_set_tooltip_text(g_record_btn, "Record radio audio to recording.wav");
     g_signal_connect(g_record_btn, "clicked", G_CALLBACK(on_record_clicked), NULL);

@@ -292,7 +292,7 @@ static gboolean on_meter_tick(gpointer /*data*/)
                           static_cast<double>(g_decoder->freq_offset()));
         } else {
             std::snprintf(buf, sizeof buf,
-                          "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz  Callsign: %s",
+                          "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz  Last call: %s",
                           static_cast<double>(g_decoder->snr_dB()),
                           static_cast<double>(g_decoder->freq_offset()),
                           cs.c_str());
@@ -304,7 +304,7 @@ static gboolean on_meter_tick(gpointer /*data*/)
                           "Searching for signal\xe2\x80\xa6");
         } else {
             std::snprintf(buf, sizeof buf,
-                          "Searching for signal\xe2\x80\xa6 Last heard: %s", cs.c_str());
+                          "Searching for signal\xe2\x80\xa6 Last call: %s", cs.c_str());
         }
         set_status(buf);
     }

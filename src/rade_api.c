@@ -87,7 +87,7 @@ struct rade *rade_open(char model_file[], int flags) {
 
     /* Note: model_file is ignored in this implementation
        Weights are compiled in via rade_enc_data.c and rade_dec_data.c */
-    fprintf(stderr, "rade_open: model_file=%s (ignored, using built-in weights)\n", model_file);
+    //fprintf(stderr, "rade_open: model_file=%s (ignored, using built-in weights)\n", model_file);
 
     /* Initialize transmitter
        RADE_USE_C_ENCODER flag is now always implicitly set */

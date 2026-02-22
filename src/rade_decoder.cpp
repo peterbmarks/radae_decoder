@@ -1,5 +1,5 @@
 #include "rade_decoder.h"
-#include "EooCallsignDecoder.hpp"
+#include "EooCallsignCodec.h"
 
 #include <cmath>
 #include <cstring>

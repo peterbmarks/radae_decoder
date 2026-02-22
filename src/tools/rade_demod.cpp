@@ -50,7 +50,7 @@ extern "C" {
 #include "fargan.h"
 #include "lpcnet.h"
 }
-#include "EooCallsignDecoder.hpp"
+#include "EooCallsignCodec.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

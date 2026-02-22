@@ -14,7 +14,7 @@ extern "C" {
 #include "cpu_support.h"
 }
 
-#include "EooCallsignDecoder.hpp"
+#include "EooCallsignCodec.h"
 
 /* ── streaming linear-interpolation resampler (same as rade_decoder.cpp) */
 

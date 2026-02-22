@@ -80,25 +80,25 @@ set_target_properties(rade PROPERTIES
 # ── RADE utilities ───────────────────────────────────────────────────────────
 # Uncomment these to build the demo tools
 
-# add_executable(lpcnet_demo src/tools/lpcnet_demo.c)
-# target_link_libraries(lpcnet_demo opus m)
+add_executable(lpcnet_demo src/tools/lpcnet_demo.c)
+target_link_libraries(lpcnet_demo opus m)
 
-# add_executable(radae_tx src/tools/radae_tx.c)
-# target_link_libraries(radae_tx rade opus m)
+add_executable(radae_tx src/tools/radae_tx.c)
+target_link_libraries(radae_tx rade opus m)
 
-# add_executable(radae_rx src/tools/radae_rx.c)
-# target_link_libraries(radae_rx rade opus m)
+add_executable(radae_rx src/tools/radae_rx.c)
+target_link_libraries(radae_rx rade opus m)
 
-# add_executable(real2iq src/tools/real2iq.c)
-# target_link_libraries(real2iq m)
+add_executable(real2iq src/tools/real2iq.c)
+target_link_libraries(real2iq m)
 
 # Reads a RADE WAV file and writes a decoded audio WAV
-add_executable(rade_demod src/tools/rade_demod.cpp)
+add_executable(rade_demod src/tools/rade_demod.cpp src/EooCallsignCodec.cpp)
 target_link_libraries(rade_demod rade opus m)
 
 # Reads a WAV file containing speech audio and writes a WAV
 # file containing RADE OFDM encoded audio.
-add_executable(rade_modulate src/tools/rade_modulate.cpp)
+add_executable(rade_modulate src/tools/rade_modulate.cpp src/EooCallsignCodec.cpp)
 target_link_libraries(rade_modulate rade opus m)
 
 add_executable(webrx_rade_decode src/tools/webrx_rade_decode.c)
@@ -109,6 +109,7 @@ add_executable(radae_headless
     src/audio_input.cpp
     src/rade_decoder.cpp
     src/rade_encoder.cpp
+    src/EooCallsignCodec.cpp
     ${AUDIO_BACKEND_SRC}
 )
 target_link_libraries(radae_headless
@@ -127,6 +128,11 @@ target_include_directories(radae_headless PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+# put all the command line tools in a tools directory
+set_target_properties(lpcnet_demo radae_tx radae_rx real2iq rade_demod rade_modulate webrx_rade_decode radae_headless PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tools
+)
+
 # ── GUI application ──────────────────────────────────────────────────────────
 add_executable(RADAE_Gui
     src/main.cpp
@@ -134,6 +140,7 @@ add_executable(RADAE_Gui
     src/meter_widget.cpp
     src/rade_decoder.cpp
     src/rade_encoder.cpp
+    src/EooCallsignCodec.cpp
     src/spectrum_widget.cpp
     src/waterfall_widget.cpp
     ${AUDIO_BACKEND_SRC}

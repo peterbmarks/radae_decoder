@@ -202,6 +202,7 @@ void RadaeEncoder::start()
 
 void RadaeEncoder::stop()
 {
+    fprintf(stderr, "RadaeEncoder::stop()\n");
     if (!running_) return;
     running_ = false;
 
@@ -433,5 +434,6 @@ void RadaeEncoder::processing_loop()
         }
         /* drain: block until all EOO audio has been played out */
         stream_out_.drain();
+        fprintf(stderr, "Done sending eoo frame\n");
     }
 }

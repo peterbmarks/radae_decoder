@@ -393,10 +393,14 @@ static void on_tx_combo_changed(GtkComboBox* /*combo*/, gpointer /*data*/)
     save_config();
 }
 
-/* callsign entry changed: save config */
+/* callsign entry changed: save config and update running encoder */
 static void on_callsign_changed(GtkEditable* /*e*/, gpointer /*data*/)
 {
     save_config();
+    if (g_encoder && g_callsign_entry) {
+        const char* cs = gtk_entry_get_text(GTK_ENTRY(g_callsign_entry));
+        g_encoder->set_callsign(cs ? cs : "");
+    }
 }
 
 /* gridsquare entry changed: save config */

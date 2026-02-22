@@ -400,6 +400,7 @@ void RadaeEncoder::processing_loop()
 
     /* ── send end-of-over frame ──────────────────────────────────────── */
     if (rade_ && stream_out_.is_open()) {
+        fprintf(stderr, "sending eoo frame\n");
         int n_out = rade_tx_eoo(rade_, eoo_out.data());
         if (bpf_enabled_.load(std::memory_order_relaxed))
             rade_bpf_process(&bpf_, eoo_out.data(), eoo_out.data(), n_out);

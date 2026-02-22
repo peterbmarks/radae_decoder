@@ -139,6 +139,12 @@ void AudioStream::start()
         snd_pcm_prepare(impl_->pcm);
 }
 
+void AudioStream::drain()
+{
+    if (impl_ && impl_->pcm)
+        snd_pcm_drain(impl_->pcm);
+}
+
 AudioError AudioStream::read(void* buffer, unsigned long frames)
 {
     if (!impl_ || !impl_->pcm) return AUDIO_ERROR;

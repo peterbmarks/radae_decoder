@@ -184,6 +184,12 @@ void AudioStream::start()
     /* pa_simple has no explicit start; streaming resumes on next read/write */
 }
 
+void AudioStream::drain()
+{
+    if (impl_ && impl_->simple)
+        pa_simple_drain(impl_->simple, nullptr);
+}
+
 AudioError AudioStream::read(void* buffer, unsigned long frames)
 {
     if (!impl_ || !impl_->simple) return AUDIO_ERROR;

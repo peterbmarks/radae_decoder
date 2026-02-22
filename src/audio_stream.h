@@ -47,9 +47,12 @@ public:
 
     void close();
 
-    /* stop & restart an already-opened stream */
+    /* stop & restart an already-opened stream (discards buffered data) */
     void stop();
     void start();
+
+    /* drain: block until all pending playback data has been played out */
+    void drain();
 
     /* Blocking read/write of S16 mono/stereo interleaved samples.
        Returns AUDIO_OK, AUDIO_OVERFLOW (read only), or AUDIO_ERROR. */

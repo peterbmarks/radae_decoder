@@ -113,6 +113,12 @@ void AudioStream::start()
     if (impl_) Pa_StartStream(impl_->stream);
 }
 
+void AudioStream::drain()
+{
+    /* Pa_StopStream blocks until all pending output has been played */
+    if (impl_) Pa_StopStream(impl_->stream);
+}
+
 AudioError AudioStream::read(void* buffer, unsigned long frames)
 {
     if (!impl_) return AUDIO_ERROR;

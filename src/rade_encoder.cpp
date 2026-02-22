@@ -431,8 +431,7 @@ void RadaeEncoder::processing_loop()
                                  tx_scale_.load(std::memory_order_relaxed),
                                  recorder_);
         }
-        /* drain the output buffer */
-        stream_out_.stop();
-        stream_out_.start();
+        /* drain: block until all EOO audio has been played out */
+        stream_out_.drain();
     }
 }

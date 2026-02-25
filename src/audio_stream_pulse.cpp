@@ -147,7 +147,8 @@ bool AudioStream::open(const std::string& device_id, bool is_input,
     /* Cap the recording ring buffer to 4 fragments so stale audio cannot
        accumulate and delay the spectrum display.  PulseAudio will drop
        overflows rather than growing the buffer indefinitely. */
-    attr.maxlength = attr.fragsize * 4;
+    //attr.maxlength = attr.fragsize * 4; // does not decode
+    attr.maxlength = static_cast<uint32_t>(-1);
 
     int error = 0;
     pa_simple* s = pa_simple_new(

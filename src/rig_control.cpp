@@ -4,11 +4,15 @@
 #include <hamlib/rig.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <glob.h>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 /* ── rig enumeration data ────────────────────────────────────────────── */
@@ -68,10 +72,15 @@ static GtkWidget* g_freq_entry     = nullptr;
 static GtkWidget* g_mode_entry     = nullptr;
 static GtkWidget* g_test_tx_btn    = nullptr;
 
-static RIG*  g_rig        = nullptr;
-static guint g_poll_timer = 0;
-static bool  g_connected  = false;
-static bool  g_ptt_on     = false;
+static RIG*  g_rig       = nullptr;
+static bool  g_connected = false;
+static bool  g_ptt_on    = false;
+
+/* ── background poll thread ──────────────────────────────────────────── */
+static std::thread            g_poll_thread;
+static std::mutex             g_rig_mutex;    /* guards g_rig and all hamlib calls */
+static std::mutex             g_cache_mutex;  /* guards g_cached_freq/mode */
+static std::atomic<bool>      g_poll_running{false};
 
 static std::string g_cached_freq;   /* last polled frequency string, e.g. "14.225.000 MHz" */
 static std::string g_cached_mode;   /* last polled mode string, e.g. "USB" */
@@ -108,47 +117,80 @@ static void apply_connected_state(bool connected)
     }
 }
 
-/* ── polling timer ───────────────────────────────────────────────────── */
+/* ── background poll thread ──────────────────────────────────────────── */
 
-static gboolean on_rig_poll(gpointer /*data*/)
+/* Called on the GTK main thread (via g_idle_add) to push cached values
+   into the dialog's read-only entry widgets. */
+static gboolean update_rig_entries(gpointer /*data*/)
 {
-    if (!g_rig || !g_connected) return FALSE;
-
-    freq_t freq = 0;
-    int ret = rig_get_freq(g_rig, RIG_VFO_CURR, &freq);
-    if (ret == RIG_OK) {
-        char buf[64];
-        std::snprintf(buf, sizeof buf, "%.6f MHz", freq / 1e6);
-        g_cached_freq = buf;
-        gtk_entry_set_text(GTK_ENTRY(g_freq_entry), buf);
-    } else {
-        g_cached_freq.clear();
-        gtk_entry_set_text(GTK_ENTRY(g_freq_entry), rigerror(ret));
+    std::string freq, mode;
+    {
+        std::lock_guard<std::mutex> lk(g_cache_mutex);
+        freq = g_cached_freq;
+        mode = g_cached_mode;
     }
+    if (g_freq_entry)
+        gtk_entry_set_text(GTK_ENTRY(g_freq_entry), freq.c_str());
+    if (g_mode_entry)
+        gtk_entry_set_text(GTK_ENTRY(g_mode_entry), mode.c_str());
+    return FALSE; /* one-shot */
+}
 
-    rmode_t   mode  = RIG_MODE_NONE;
-    pbwidth_t width = 0;
-    ret = rig_get_mode(g_rig, RIG_VFO_CURR, &mode, &width);
-    if (ret == RIG_OK) {
-        g_cached_mode = rig_strrmode(mode);
-        gtk_entry_set_text(GTK_ENTRY(g_mode_entry), g_cached_mode.c_str());
-    } else {
-        g_cached_mode.clear();
-        gtk_entry_set_text(GTK_ENTRY(g_mode_entry), rigerror(ret));
+static void rig_poll_thread_func()
+{
+    while (g_poll_running.load()) {
+        /* ── query the radio (blocking serial I/O, off the GTK thread) ── */
+        std::string new_freq, new_mode;
+        {
+            std::lock_guard<std::mutex> lk(g_rig_mutex);
+            if (!g_rig || !g_connected || !g_poll_running.load())
+                break;
+
+            freq_t freq = 0;
+            if (rig_get_freq(g_rig, RIG_VFO_CURR, &freq) == RIG_OK) {
+                char buf[64];
+                std::snprintf(buf, sizeof buf, "%.6f MHz", freq / 1e6);
+                new_freq = buf;
+            }
+
+            rmode_t   mode  = RIG_MODE_NONE;
+            pbwidth_t width = 0;
+            if (rig_get_mode(g_rig, RIG_VFO_CURR, &mode, &width) == RIG_OK)
+                new_mode = rig_strrmode(mode);
+        }
+
+        /* ── update cache ──────────────────────────────────────────────── */
+        {
+            std::lock_guard<std::mutex> lk(g_cache_mutex);
+            g_cached_freq = new_freq;
+            g_cached_mode = new_mode;
+        }
+
+        /* Push widget update to the GTK main thread */
+        g_idle_add(update_rig_entries, nullptr);
+
+        /* ── sleep 5 s in 100 ms slices so we can exit promptly ────────── */
+        for (int i = 0; i < 50 && g_poll_running.load(); ++i)
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
-    return TRUE;
 }
 
 /* ── connect / disconnect ────────────────────────────────────────────── */
 
 static void do_disconnect()
 {
-    if (g_poll_timer) { g_source_remove(g_poll_timer); g_poll_timer = 0; }
-    if (g_rig) {
-        rig_close(g_rig);
-        rig_cleanup(g_rig);
-        g_rig = nullptr;
+    /* Stop the background poll thread before touching the rig handle. */
+    g_poll_running.store(false);
+    if (g_poll_thread.joinable())
+        g_poll_thread.join();
+
+    {
+        std::lock_guard<std::mutex> lk(g_rig_mutex);
+        if (g_rig) {
+            rig_close(g_rig);
+            rig_cleanup(g_rig);
+            g_rig = nullptr;
+        }
     }
     apply_connected_state(false);
     set_status("Disconnected.");
@@ -199,7 +241,8 @@ static std::string do_connect()
 
     apply_connected_state(true);
     set_status("Connected.");
-    g_poll_timer = g_timeout_add(1000, on_rig_poll, nullptr);
+    g_poll_running.store(true);
+    g_poll_thread = std::thread(rig_poll_thread_func);
     return "";
 }
 
@@ -447,12 +490,13 @@ std::string rig_config_get_baud()
 /* ── state queries (for the main-window status line) ────────────────── */
 
 bool        rig_is_connected()      { return g_connected; }
-std::string rig_get_current_freq()  { return g_cached_freq; }
-std::string rig_get_current_mode()  { return g_cached_mode; }
+std::string rig_get_current_freq()  { std::lock_guard<std::mutex> lk(g_cache_mutex); return g_cached_freq; }
+std::string rig_get_current_mode()  { std::lock_guard<std::mutex> lk(g_cache_mutex); return g_cached_mode; }
 bool        rig_get_ptt_on()        { return g_ptt_on; }
 
 void rig_control_set_ptt(bool on)
 {
+    std::lock_guard<std::mutex> lk(g_rig_mutex);
     if (!g_rig || !g_connected) return;
     rig_set_ptt(g_rig, RIG_VFO_CURR, on ? RIG_PTT_ON : RIG_PTT_OFF);
     g_ptt_on = on;
@@ -460,6 +504,12 @@ void rig_control_set_ptt(bool on)
 
 void rig_control_cleanup()
 {
+    /* Stop the background thread first so it doesn't race with us. */
+    g_poll_running.store(false);
+    if (g_poll_thread.joinable())
+        g_poll_thread.join();
+
+    std::lock_guard<std::mutex> lk(g_rig_mutex);
     if (!g_rig || !g_connected) return;
     /* Send PTT off, then wait long enough for the slowest CAT rate to flush
        before rig_close() tears down the serial port. */

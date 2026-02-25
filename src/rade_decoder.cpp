@@ -222,26 +222,16 @@ bool RadaeDecoder::open(const std::string& input_hw_id,
 {
     close();
 
-    /* ── audio capture (mono, 8 kHz) ────────────────────────────────── */
-    rate_in_ = RADE_FS;
-    if (!stream_in_.open(input_hw_id, true, 1, rate_in_, 512))
-        return false;
-
-    /* ── audio playback (mono, 16 kHz) ───────────────────────────────── */
-    rate_out_ = RADE_FS_SPEECH;
-    if (!stream_out_.open(output_hw_id, false, 1, rate_out_, 512)) {
-        stream_in_.close();
-        return false;
-    }
-
-    /* ── RADE receiver ──────────────────────────────────────────────── */
+    /* ── RADE receiver ──────────────────────────────────────────────────
+     *  Initialise RADE and FARGAN BEFORE opening the audio streams so that
+     *  no audio accumulates in the PulseAudio input ring buffer while the
+     *  neural-network model is loading.  Opening the capture stream last
+     *  ensures the processing thread starts reading current audio, not
+     *  several seconds of stale buffered data.
+     * ─────────────────────────────────────────────────────────────────── */
     rade_initialize();
     rade_ = rade_open(nullptr, RADE_VERBOSE_0);
-    if (!rade_) {
-        stream_in_.close();
-        stream_out_.close();
-        return false;
-    }
+    if (!rade_) return false;
 
     /* ── FARGAN vocoder ─────────────────────────────────────────────── */
     fargan_ = new FARGANState;
@@ -264,6 +254,22 @@ bool RadaeDecoder::open(const std::string& input_hw_id,
     for (int i = 0; i < FFT_SIZE; i++)
         fft_window_[i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * i / (FFT_SIZE - 1)));
     std::memset(spectrum_mag_, 0, sizeof(spectrum_mag_));
+
+    /* ── audio streams — opened LAST so PulseAudio starts buffering now ── */
+    rate_in_ = RADE_FS;
+    if (!stream_in_.open(input_hw_id, true, 1, rate_in_, 512)) {
+        rade_close(rade_); rade_ = nullptr;
+        delete static_cast<FARGANState*>(fargan_); fargan_ = nullptr;
+        return false;
+    }
+
+    rate_out_ = RADE_FS_SPEECH;
+    if (!stream_out_.open(output_hw_id, false, 1, rate_out_, 512)) {
+        stream_in_.close();
+        rade_close(rade_); rade_ = nullptr;
+        delete static_cast<FARGANState*>(fargan_); fargan_ = nullptr;
+        return false;
+    }
 
     return true;
 }

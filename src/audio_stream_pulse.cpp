@@ -138,13 +138,17 @@ bool AudioStream::open(const std::string& device_id, bool is_input,
        producing visible gaps in the spectrum display.
        Leave playback with the server default (nullptr) to avoid underruns. */
     pa_buffer_attr attr{};
-    attr.maxlength = static_cast<uint32_t>(-1);
     attr.tlength   = static_cast<uint32_t>(-1);
     attr.prebuf    = static_cast<uint32_t>(-1);
     attr.minreq    = static_cast<uint32_t>(-1);
     attr.fragsize  = static_cast<uint32_t>(frames_per_buffer)
                    * static_cast<uint32_t>(channels)
                    * static_cast<uint32_t>(pa_sample_size(&ss));
+    /* Cap the recording ring buffer to 4 fragments so stale audio cannot
+       accumulate and delay the spectrum display.  PulseAudio will drop
+       overflows rather than growing the buffer indefinitely. */
+    //attr.maxlength = attr.fragsize * 4; // does not decode
+    attr.maxlength = static_cast<uint32_t>(-1);
 
     int error = 0;
     pa_simple* s = pa_simple_new(

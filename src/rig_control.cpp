@@ -142,22 +142,19 @@ static void do_disconnect()
     set_status("Disconnected.");
 }
 
-static void on_connect_clicked(GtkButton* /*btn*/, gpointer /*data*/)
+/* Attempt to open the rig using the current widget selections.
+   Returns an empty string on success, or a human-readable error message. */
+static std::string do_connect()
 {
-    if (g_connected) { do_disconnect(); return; }
-
     int model_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_rig_combo));
-    if (model_idx < 0 || model_idx >= static_cast<int>(g_rig_list.size())) {
-        set_status("Error: select a radio model first.");
-        return;
-    }
+    if (model_idx < 0 || model_idx >= static_cast<int>(g_rig_list.size()))
+        return "Select a radio model first.";
 
     gchar* port_str = gtk_combo_box_text_get_active_text(
                           GTK_COMBO_BOX_TEXT(g_port_combo));
     if (!port_str || port_str[0] == '\0') {
         g_free(port_str);
-        set_status("Error: select a serial port first.");
-        return;
+        return "Select a serial port first.";
     }
 
     gchar* baud_str = gtk_combo_box_text_get_active_text(
@@ -170,8 +167,7 @@ static void on_connect_clicked(GtkButton* /*btn*/, gpointer /*data*/)
     g_rig = rig_init(model_id);
     if (!g_rig) {
         g_free(port_str);
-        set_status("Error: rig_init() failed — invalid model?");
-        return;
+        return "rig_init() failed \xe2\x80\x94 invalid model?";
     }
 
     std::strncpy(g_rig->state.rigport.pathname, port_str,
@@ -183,16 +179,25 @@ static void on_connect_clicked(GtkButton* /*btn*/, gpointer /*data*/)
     int ret = rig_open(g_rig);
     if (ret != RIG_OK) {
         char buf[256];
-        std::snprintf(buf, sizeof buf, "Error: rig_open: %s", rigerror(ret));
-        set_status(buf);
+        std::snprintf(buf, sizeof buf, "rig_open: %s", rigerror(ret));
         rig_cleanup(g_rig);
         g_rig = nullptr;
-        return;
+        return buf;
     }
 
     apply_connected_state(true);
     set_status("Connected.");
     g_poll_timer = g_timeout_add(1000, on_rig_poll, nullptr);
+    return "";
+}
+
+static void on_connect_clicked(GtkButton* /*btn*/, gpointer /*data*/)
+{
+    if (g_connected) { do_disconnect(); return; }
+
+    std::string err = do_connect();
+    if (!err.empty())
+        set_status(("Error: " + err).c_str());
 }
 
 /* ── PTT test ────────────────────────────────────────────────────────── */
@@ -222,6 +227,37 @@ static void on_test_tx(GtkButton* /*btn*/, gpointer /*data*/)
     gtk_button_set_label(GTK_BUTTON(g_test_tx_btn), "TX\xe2\x80\xa6");  /* TX… */
     set_status("PTT ON \xe2\x80\x94 will turn off in 1 s\xe2\x80\xa6");
     g_timeout_add(1000, on_ptt_off, nullptr);
+}
+
+/* ── auto-connect at launch ──────────────────────────────────────────── */
+
+void rig_auto_connect(GtkWindow* parent)
+{
+    /* Only attempt if both a model and a port have been restored. */
+    if (gtk_combo_box_get_active(GTK_COMBO_BOX(g_rig_combo)) < 0)
+        return;
+
+    gchar* port_txt = gtk_combo_box_text_get_active_text(
+                          GTK_COMBO_BOX_TEXT(g_port_combo));
+    bool has_port = port_txt && port_txt[0] != '\0';
+    g_free(port_txt);
+    if (!has_port) return;
+
+    std::string err = do_connect();
+    if (!err.empty()) {
+        set_status(("Error: " + err).c_str());
+
+        GtkWidget* dlg = gtk_message_dialog_new(
+            parent,
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_CLOSE,
+            "Rig Control: auto-connect failed");
+        gtk_message_dialog_format_secondary_text(
+            GTK_MESSAGE_DIALOG(dlg), "%s", err.c_str());
+        gtk_dialog_run(GTK_DIALOG(dlg));
+        gtk_widget_destroy(dlg);
+    }
 }
 
 /* ── dialog construction ─────────────────────────────────────────────── */

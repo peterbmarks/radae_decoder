@@ -31,3 +31,8 @@ void rig_config_restore(const std::string& model_id,
    setting (model, port, or baud).  Pass main's save_config here so that
    rig settings are written to disk immediately on change. */
 void rig_control_set_save_callback(void (*cb)());
+
+/* If a radio model and serial port are already configured, attempt to
+   connect automatically.  On failure an error alert is shown parented to
+   `parent`.  Call this once after rig_config_restore(). */
+void rig_auto_connect(GtkWindow* parent);

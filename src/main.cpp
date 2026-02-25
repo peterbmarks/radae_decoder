@@ -1079,6 +1079,9 @@ static void activate(GtkApplication* app, gpointer /*data*/)
         if (in_idx >= 0 && out_idx >= 0)
             start_decoder(in_idx, out_idx);
     }
+
+    /* ── auto-connect to rig if settings were saved ─────────────── */
+    rig_auto_connect(GTK_WINDOW(window));
 }
 
 /* ── entry point ────────────────────────────────────────────────────────── */

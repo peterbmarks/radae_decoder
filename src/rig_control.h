@@ -26,3 +26,8 @@ std::string rig_config_get_baud();
 void rig_config_restore(const std::string& model_id,
                         const std::string& port,
                         const std::string& baud);
+
+/* Register a callback that is called whenever the user changes a rig
+   setting (model, port, or baud).  Pass main's save_config here so that
+   rig settings are written to disk immediately on change. */
+void rig_control_set_save_callback(void (*cb)());

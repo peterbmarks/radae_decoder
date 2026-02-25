@@ -72,6 +72,12 @@ static RIG*  g_rig        = nullptr;
 static guint g_poll_timer = 0;
 static bool  g_connected  = false;
 
+static void (*g_save_cb)() = nullptr;
+
+void rig_control_set_save_callback(void (*cb)()) { g_save_cb = cb; }
+
+static void fire_save() { if (g_save_cb) g_save_cb(); }
+
 /* ── helpers ─────────────────────────────────────────────────────────── */
 
 static void set_status(const char* msg)
@@ -270,6 +276,8 @@ GtkWidget* rig_control_create_dialog(GtkWidget* parent_window)
         gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(g_rig_combo),
                                        e.label.c_str());
     gtk_widget_set_tooltip_text(g_rig_combo, "Select your radio transceiver model");
+    g_signal_connect_swapped(g_rig_combo, "changed",
+                             G_CALLBACK(fire_save), nullptr);
     add_row("Radio:", g_rig_combo);
 
     /* ── serial port combo (with editable entry for custom paths) ── */
@@ -279,6 +287,8 @@ GtkWidget* rig_control_create_dialog(GtkWidget* parent_window)
                                        p.c_str());
     gtk_widget_set_tooltip_text(g_port_combo,
         "Serial port connected to the rig (you can also type a path)");
+    g_signal_connect_swapped(g_port_combo, "changed",
+                             G_CALLBACK(fire_save), nullptr);
     add_row("Port:", g_port_combo);
 
     /* ── baud rate combo ─────────────────────────────────────────── */
@@ -292,6 +302,8 @@ GtkWidget* rig_control_create_dialog(GtkWidget* parent_window)
                                        k_bauds[i]);
     gtk_combo_box_set_active(GTK_COMBO_BOX(g_baud_combo), 4); /* 9600 */
     gtk_widget_set_tooltip_text(g_baud_combo, "Serial baud rate");
+    g_signal_connect_swapped(g_baud_combo, "changed",
+                             G_CALLBACK(fire_save), nullptr);
     add_row("Baud rate:", g_baud_combo);
 
     gtk_box_pack_start(GTK_BOX(content),

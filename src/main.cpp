@@ -135,6 +135,9 @@ static bool restore_config()
             saved_rig_baud = line.substr(9);
     }
 
+    /* Restore rig settings unconditionally — must happen before any early return. */
+    rig_config_restore(saved_rig_model_id, saved_rig_port, saved_rig_baud);
+
     if (saved_in.empty() && saved_out.empty()) return false;
 
     int in_idx = -1, out_idx = -1;
@@ -182,8 +185,6 @@ static bool restore_config()
         gtk_entry_set_text(GTK_ENTRY(g_callsign_entry), saved_callsign.c_str());
     if (!saved_gridsquare.empty() && g_gridsquare_entry)
         gtk_entry_set_text(GTK_ENTRY(g_gridsquare_entry), saved_gridsquare.c_str());
-
-    rig_config_restore(saved_rig_model_id, saved_rig_port, saved_rig_baud);
 
     return (in_idx >= 0 && out_idx >= 0);
 }
@@ -811,6 +812,7 @@ static void activate(GtkApplication* app, gpointer /*data*/)
 
     /* ── rig control dialog (created hidden, shown from Edit > Rig Control) ── */
     g_rig_dlg = rig_control_create_dialog(window);
+    rig_control_set_save_callback(save_config);
 
     /* ── settings dialog (created hidden, shown from Edit > Settings) ── */
     g_settings_dlg = gtk_dialog_new_with_buttons(

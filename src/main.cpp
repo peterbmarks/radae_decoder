@@ -1023,18 +1023,6 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     g_signal_connect(g_record_btn, "clicked", G_CALLBACK(on_record_clicked), NULL);
     gtk_box_pack_start(GTK_BOX(btn_hbox), g_record_btn, FALSE, FALSE, 0);
 
-    GtkWidget* tx_label = gtk_label_new("TX");
-    gtk_box_pack_start(GTK_BOX(btn_hbox), tx_label, FALSE, FALSE, 0);
-
-    g_tx_switch = gtk_switch_new();
-    gtk_widget_set_tooltip_text(g_tx_switch, "Toggle transmit mode");
-    gtk_widget_set_valign(g_tx_switch, GTK_ALIGN_CENTER);
-    g_signal_connect(g_tx_switch, "state-set", G_CALLBACK(on_tx_switch_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(btn_hbox), g_tx_switch, FALSE, FALSE, 0);
-
-    /* spacer between TX and BPF switches */
-    gtk_box_pack_start(GTK_BOX(btn_hbox), gtk_label_new(""), FALSE, FALSE, 4);
-
     GtkWidget* bpf_label = gtk_label_new("BPF");
     gtk_box_pack_start(GTK_BOX(btn_hbox), bpf_label, FALSE, FALSE, 0);
 
@@ -1043,6 +1031,18 @@ static void activate(GtkApplication* app, gpointer /*data*/)
     gtk_widget_set_valign(g_bpf_switch, GTK_ALIGN_CENTER);
     g_signal_connect(g_bpf_switch, "state-set", G_CALLBACK(on_bpf_switch_changed), NULL);
     gtk_box_pack_start(GTK_BOX(btn_hbox), g_bpf_switch, FALSE, FALSE, 0);
+
+    /* spacer between BPF and TX switches */
+    gtk_box_pack_start(GTK_BOX(btn_hbox), gtk_label_new(""), FALSE, FALSE, 4);
+
+    GtkWidget* tx_label = gtk_label_new("TX");
+    gtk_box_pack_start(GTK_BOX(btn_hbox), tx_label, FALSE, FALSE, 0);
+
+    g_tx_switch = gtk_switch_new();
+    gtk_widget_set_tooltip_text(g_tx_switch, "Toggle transmit mode");
+    gtk_widget_set_valign(g_tx_switch, GTK_ALIGN_CENTER);
+    g_signal_connect(g_tx_switch, "state-set", G_CALLBACK(on_tx_switch_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(btn_hbox), g_tx_switch, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(vbox), btn_hbox, FALSE, FALSE, 0);
 

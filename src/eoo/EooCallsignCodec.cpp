@@ -87,7 +87,7 @@ static const int kNumRowsHcols     = 56;
 static const int kMaxRowWeight     = 3;
 static const int kMaxColWeight     = 3;
 static const int kMaxIter          = 100;
-static const int kDecType          = 0;   // uses phi0, not |LLR|
+//static const int kDecType          = 0;   // uses phi0, not |LLR|
 
 // ---------------------------------------------------------------------------
 // 3. phi0 lookup table  (codec2/src/phi0.c)

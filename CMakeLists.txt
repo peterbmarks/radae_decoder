@@ -124,15 +124,15 @@ set_target_properties(lpcnet_demo radae_tx radae_rx real2iq rade_demod rade_modu
 
 # ── GUI application ──────────────────────────────────────────────────────────
 add_executable(RADAE_Gui
-    src/main.cpp
+    src/gui/main.cpp
     src/audio/audio_input.cpp
-    src/meter_widget.cpp
+    src/gui/meter_widget.cpp
     src/rade_decoder.cpp
     src/rade_encoder.cpp
     src/eoo/EooCallsignCodec.cpp
-    src/rig_control.cpp
-    src/spectrum_widget.cpp
-    src/waterfall_widget.cpp
+    src/gui/rig_control.cpp
+    src/gui/spectrum_widget.cpp
+    src/gui/waterfall_widget.cpp
     src/wav_recorder.cpp
     ${AUDIO_BACKEND_SRC}
 )

@@ -11,8 +11,8 @@
 
 /* ── C headers from RADE / Opus (wrapped for C++ linkage) ────────────── */
 extern "C" {
-#include "rade_api.h"
-#include "rade_dsp.h"
+#include "../src/radae/rade_api.h"
+#include "../src/radae/rade_dsp.h"
 #include "fargan.h"
 #include "lpcnet.h"
 }

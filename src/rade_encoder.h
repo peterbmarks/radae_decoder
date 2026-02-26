@@ -13,7 +13,7 @@ struct rade;
 struct LPCNetEncState;
 
 extern "C" {
-#include "rade_bpf.h"
+#include "../src/radae/rade_bpf.h"
 }
 
 /* ── RadaeEncoder ──────────────────────────────────────────────────────────

@@ -53,23 +53,24 @@ add_subdirectory(src/yyjson)
 include(cmake/BuildOpus.cmake)
 
 # ── RADE library (Python-free) ───────────────────────────────────────────────
-set(RADE_DSP_SOURCES
-    src/rade_dsp.c
-    src/rade_ofdm.c
-    src/rade_bpf.c
-    src/rade_acq.c
-    src/rade_tx.c
-    src/rade_rx.c
-)
+add_subdirectory(src/radae)
+# set(RADE_DSP_SOURCES
+#     src/rade_dsp.c
+#     src/rade_ofdm.c
+#     src/rade_bpf.c
+#     src/rade_acq.c
+#     src/rade_tx.c
+#     src/rade_rx.c
+# )
 
-add_library(rade
-    src/rade_api.c
-    src/rade_enc.c
-    src/rade_dec.c
-    src/rade_enc_data.c
-    src/rade_dec_data.c
-    ${RADE_DSP_SOURCES}
-)
+# add_library(rade
+#     src/rade_api.c
+#     src/rade_enc.c
+#     src/rade_dec.c
+#     src/rade_enc_data.c
+#     src/rade_dec_data.c
+#     ${RADE_DSP_SOURCES}
+# )
 target_link_libraries(rade opus m)
 target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1 -DRADE_PYTHON_FREE=1)
 target_include_directories(rade PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

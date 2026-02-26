@@ -40,8 +40,8 @@
 #include <string.h>
 #include <getopt.h>
 
-#include "rade_api.h"
-#include "rade_dsp.h"
+#include "../src/radae/rade_api.h"
+#include "../src/radae/rade_dsp.h"
 
 void usage(void) {
     fprintf(stderr, "usage: radae_tx [options]\n");

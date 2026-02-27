@@ -500,6 +500,13 @@ void RadaeDecoder::processing_loop()
     bool was_synced = false;
     bool output_primed = false;
 
+    /* Flush any audio that accumulated in the PulseAudio server buffer while
+       the stream was being opened (or while we were transmitting).  Without
+       this, switching TX→RX replays the backlog before delivering live audio,
+       causing a noticeable delay in the spectrum display and decoded audio. */
+    if (!file_mode_)
+        stream_in_.stop();
+
     while (running_.load(std::memory_order_relaxed)) {
 
         int nin = rade_nin(rade_);

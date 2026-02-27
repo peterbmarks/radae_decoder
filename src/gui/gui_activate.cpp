@@ -233,6 +233,22 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     gtk_box_pack_start(GTK_BOX(scontent), tx_output_hbox, FALSE, FALSE, 0);
 
+    /* ── BPF toggle row ─────────────────────────────────────────────── */
+    GtkWidget* bpf_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* bpf_lbl = gtk_label_new("BPF:");
+    gtk_widget_set_size_request(bpf_lbl, 50, -1);
+    gtk_label_set_xalign(GTK_LABEL(bpf_lbl), 0.0);
+    gtk_box_pack_start(GTK_BOX(bpf_hbox), bpf_lbl, FALSE, FALSE, 0);
+
+    g_bpf_switch = gtk_switch_new();
+    gtk_widget_set_tooltip_text(g_bpf_switch, "700\xe2\x80\x93" "2300 Hz bandpass filter on TX output");
+    gtk_widget_set_valign(g_bpf_switch, GTK_ALIGN_CENTER);
+    g_signal_connect(g_bpf_switch, "state-set", G_CALLBACK(on_bpf_switch_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(bpf_hbox), g_bpf_switch, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), bpf_hbox, FALSE, FALSE, 0);
+
     /* ── separator between Transmit and Station sections ──────────── */
     gtk_box_pack_start(GTK_BOX(scontent),
                        gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);
@@ -306,18 +322,6 @@ void activate(GtkApplication* app, gpointer /*data*/)
     g_signal_connect(g_record_btn, "clicked", G_CALLBACK(on_record_clicked), NULL);
     gtk_box_pack_start(GTK_BOX(btn_hbox), g_record_btn, FALSE, FALSE, 0);
 
-    GtkWidget* bpf_label = gtk_label_new("BPF");
-    gtk_box_pack_start(GTK_BOX(btn_hbox), bpf_label, FALSE, FALSE, 0);
-
-    g_bpf_switch = gtk_switch_new();
-    gtk_widget_set_tooltip_text(g_bpf_switch, "700\xe2\x80\x93" "2300 Hz bandpass filter on TX output");
-    gtk_widget_set_valign(g_bpf_switch, GTK_ALIGN_CENTER);
-    g_signal_connect(g_bpf_switch, "state-set", G_CALLBACK(on_bpf_switch_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(btn_hbox), g_bpf_switch, FALSE, FALSE, 0);
-
-    /* spacer between BPF and TX switches */
-    gtk_box_pack_start(GTK_BOX(btn_hbox), gtk_label_new(""), FALSE, FALSE, 4);
-
     GtkWidget* tx_label = gtk_label_new("TX");
     gtk_box_pack_start(GTK_BOX(btn_hbox), tx_label, FALSE, FALSE, 0);
 
@@ -332,6 +336,7 @@ void activate(GtkApplication* app, gpointer /*data*/)
     /* ── input meter + spectrum + output meter (side by side) ────────── */
     GtkWidget* meter_spec_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
 
+    GtkWidget* mic_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     g_mic_slider = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
     gtk_range_set_inverted(GTK_RANGE(g_mic_slider), TRUE);   /* 100 at top */
     gtk_range_set_value(GTK_RANGE(g_mic_slider), 50);
@@ -340,7 +345,9 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_widget_set_tooltip_text(g_mic_slider, "TX mic input level");
     g_signal_connect(g_mic_slider, "value-changed",
                      G_CALLBACK(on_mic_level_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_mic_slider, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mic_vbox), g_mic_slider, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(mic_vbox), gtk_label_new("Mic"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), mic_vbox, FALSE, FALSE, 0);
 
     g_meter_in = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_in, FALSE, FALSE, 0);
@@ -349,6 +356,7 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     g_spectrum = spectrum_widget_new();
     gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_spectrum, TRUE, TRUE, 0);
+    gtk_widget_set_no_show_all(g_spectrum, TRUE); /* hidden for now; remove this line to restore */
 
     g_waterfall = waterfall_widget_new();
     gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_waterfall, TRUE, TRUE, 0);
@@ -358,6 +366,7 @@ void activate(GtkApplication* app, gpointer /*data*/)
     g_meter_out = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_out, FALSE, FALSE, 0);
 
+    GtkWidget* tx_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
     g_tx_slider = gtk_scale_new_with_range(GTK_ORIENTATION_VERTICAL, 0, 100, 1);
     gtk_range_set_inverted(GTK_RANGE(g_tx_slider), TRUE);   /* 100 at top */
     gtk_range_set_value(GTK_RANGE(g_tx_slider), 50);
@@ -366,7 +375,9 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_widget_set_tooltip_text(g_tx_slider, "TX output level");
     g_signal_connect(g_tx_slider, "value-changed",
                      G_CALLBACK(on_tx_level_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_tx_slider, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(tx_vbox), g_tx_slider, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(tx_vbox), gtk_label_new("TX"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), tx_vbox, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(vbox), meter_spec_hbox, TRUE, TRUE, 0);
 

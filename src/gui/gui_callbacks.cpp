@@ -49,6 +49,24 @@ gboolean on_meter_tick(gpointer /*data*/)
         return TRUE;
     }
 
+    /* ── analog passthrough mode ─────────────────────────────────────── */
+    if (g_passthrough && g_passthrough->is_running()) {
+        if (g_meter_in)
+            meter_widget_update(g_meter_in, g_passthrough->get_input_level());
+        if (g_meter_out)
+            meter_widget_update(g_meter_out, 0.0f);
+
+        float spec[AudioPassthrough::SPECTRUM_BINS];
+        g_passthrough->get_spectrum(spec, AudioPassthrough::SPECTRUM_BINS);
+        if (g_spectrum)
+            spectrum_widget_update(g_spectrum, spec, AudioPassthrough::SPECTRUM_BINS,
+                                   g_passthrough->spectrum_sample_rate());
+        if (g_waterfall)
+            waterfall_widget_update(g_waterfall, spec, AudioPassthrough::SPECTRUM_BINS,
+                                    g_passthrough->spectrum_sample_rate());
+        return TRUE;
+    }
+
     /* ── RX mode ─────────────────────────────────────────────────────── */
     if (!g_decoder) return TRUE;
     std::string cs = g_decoder->last_callsign();

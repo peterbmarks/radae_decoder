@@ -231,4 +231,5 @@ void start_passthrough(int in_idx, int out_idx)
 
     g_passthrough->start();
     set_status("Analog passthrough active.");
+    g_timer = g_timeout_add(33, on_meter_tick, nullptr);   // ~30 fps
 }

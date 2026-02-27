@@ -155,6 +155,10 @@ set_target_properties(lpcnet_demo radae_tx radae_rx real2iq rade_demod rade_modu
 # ── GUI application ──────────────────────────────────────────────────────────
 add_executable(RADAE_Gui
     src/gui/main.cpp
+    src/gui/gui_config.cpp
+    src/gui/gui_controls.cpp
+    src/gui/gui_callbacks.cpp
+    src/gui/gui_activate.cpp
     src/audio/audio_input.cpp
     src/gui/meter_widget.cpp
     src/radae_top/rade_decoder.cpp

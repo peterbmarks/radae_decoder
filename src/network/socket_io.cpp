@@ -90,6 +90,7 @@ void SocketIO::connect(const std::string& host, int port,
                        const std::string& authJson)
 {
     authJson_ = authJson;
+    // example: URL: wss://qso.freedv.org/socket.io/?EIO=4&transport=websocket&sid=q_U8PuyOCv7fefPzDV3E
 
     // Build the Socket.IO WebSocket URL.
     // EIO=4 selects Engine.IO v4 (used by Socket.IO v3/v4).
@@ -97,7 +98,7 @@ void SocketIO::connect(const std::string& host, int port,
     const std::string url = "ws://" + host + ":" + std::to_string(port)
                           + "/socket.io/?EIO=4&transport=websocket";
     ws_->setUrl(url);
-    fprintf(stderr, "reporter url = %s\n", url.c_str());
+    std::cerr << "calling reporter url = " << url << '\n';
 
     // IXWebSocket fires this callback from its own background thread.
     ws_->setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
@@ -158,12 +159,13 @@ void SocketIO::emit(const std::string& event, const std::string& dataJson)
 
 void SocketIO::sendRaw(const std::string& packet)
 {
+    std::cerr << "sendRaw sending: " << packet << '\n';
     ws_->send(packet);
 }
 
 void SocketIO::onRawMessage(const std::string& msg)
 {
-    fprintf(stderr, "onRawMessage(%s)\n", msg.c_str());
+    std::cerr << "socketIO::onRawMessage received: " << msg << '\n';
     if (msg.empty()) return;
 
     switch (msg[0]) {
@@ -178,6 +180,7 @@ void SocketIO::onRawMessage(const std::string& msg)
                 connectPkt += authJson_;
                 connectPkt += '}';
             }
+            std::cerr << "got connect packet, sending reply: " << connectPkt << '\n';
             sendRaw(connectPkt);
         }
         break;
@@ -208,18 +211,21 @@ void SocketIO::onRawMessage(const std::string& msg)
 
         case '0':
             // Socket.IO CONNECT ACK – we are now fully connected.
+            std::cerr << "got Socket.IO connect ACK, we are fully connected." << '\n';
             sioConnected_.store(true);
             if (connectCb_) connectCb_();
             break;
 
         case '1':
             // Socket.IO DISCONNECT.
+            std::cerr << "got Socket.IO disconnect" << '\n';
             sioConnected_.store(false);
             if (disconnectCb_) disconnectCb_();
             break;
 
         case '2': {
             // Socket.IO EVENT – parse and dispatch.
+            std::cerr << "got Socket.IO EVENT" << '\n';
             std::string eventName, eventData;
             if (sio_parse_event(payload, eventName, eventData))
                 dispatchEvent(eventName, eventData);

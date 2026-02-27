@@ -275,7 +275,7 @@ static uint64_t rig_freq_hz()
 static void reporter_restart()
 {
     fprintf(stderr, "reporter_restart()\n");
-    
+
     delete g_reporter;
     g_reporter = nullptr;
 
@@ -284,7 +284,7 @@ static void reporter_restart()
     const char* gs = g_gridsquare_entry
                    ? gtk_entry_get_text(GTK_ENTRY(g_gridsquare_entry)) : "";
 
-    g_reporter = new FreeDVReporter(cs ? cs : "", gs ? gs : "", "RADAEV1c");
+    g_reporter = new FreeDVReporter(cs ? cs : "", gs ? gs : "", "RADAEV1c"); // "FreeDV 2.2.1" 
     g_reporter->connect();
 
     g_last_rx_callsign.clear();

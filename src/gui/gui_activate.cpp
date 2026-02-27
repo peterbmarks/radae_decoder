@@ -386,6 +386,17 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_label_set_xalign(GTK_LABEL(g_rig_status_lbl), 0.5);
     gtk_box_pack_start(GTK_BOX(vbox), g_rig_status_lbl, FALSE, FALSE, 0);
 
+    /* ── reporter message row ───────────────────────────────────────── */
+    GtkWidget* msg_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_box_pack_start(GTK_BOX(msg_hbox), gtk_label_new("Message:"), FALSE, FALSE, 0);
+    g_message_entry = gtk_entry_new();
+    gtk_widget_set_tooltip_text(g_message_entry, "Free-text status message sent to FreeDV Reporter");
+    gtk_box_pack_start(GTK_BOX(msg_hbox), g_message_entry, TRUE, TRUE, 0);
+    GtkWidget* send_btn = gtk_button_new_with_label("Send");
+    g_signal_connect(send_btn, "clicked", G_CALLBACK(on_send_message), nullptr);
+    gtk_box_pack_start(GTK_BOX(msg_hbox), send_btn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox), msg_hbox, FALSE, FALSE, 0);
+
     /* ── status label ──────────────────────────────────────────────── */
     g_status = gtk_label_new("");
     gtk_widget_set_name(g_status, "status-label");

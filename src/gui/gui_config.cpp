@@ -52,6 +52,8 @@ void save_config()
         f << "rig_model_id=" << rig_config_get_model_id() << '\n';
         f << "rig_port="     << rig_config_get_port()     << '\n';
         f << "rig_baud="     << rig_config_get_baud()     << '\n';
+        const char* msg = g_message_entry ? gtk_entry_get_text(GTK_ENTRY(g_message_entry)) : "";
+        f << "reporter_message=" << (msg ? msg : "") << '\n';
     }
 }
 
@@ -62,7 +64,7 @@ bool restore_config()
     if (!f) return false;
 
     std::string saved_in, saved_out, saved_tx_in, saved_tx_out, saved_callsign, saved_gridsquare;
-    std::string saved_rig_model_id, saved_rig_port, saved_rig_baud;
+    std::string saved_rig_model_id, saved_rig_port, saved_rig_baud, saved_reporter_message;
     int saved_tx_level = -1;
     int saved_mic_level = -1;
     int saved_bpf_enabled = -1;
@@ -92,6 +94,8 @@ bool restore_config()
             saved_rig_port = line.substr(9);
         else if (line.compare(0, 9, "rig_baud=") == 0)
             saved_rig_baud = line.substr(9);
+        else if (line.compare(0, 17, "reporter_message=") == 0)
+            saved_reporter_message = line.substr(17);
     }
 
     /* Restore rig settings unconditionally — must happen before any early return. */
@@ -144,6 +148,8 @@ bool restore_config()
         gtk_entry_set_text(GTK_ENTRY(g_callsign_entry), saved_callsign.c_str());
     if (!saved_gridsquare.empty() && g_gridsquare_entry)
         gtk_entry_set_text(GTK_ENTRY(g_gridsquare_entry), saved_gridsquare.c_str());
+    if (!saved_reporter_message.empty() && g_message_entry)
+        gtk_entry_set_text(GTK_ENTRY(g_message_entry), saved_reporter_message.c_str());
 
     return (in_idx >= 0 && out_idx >= 0);
 }

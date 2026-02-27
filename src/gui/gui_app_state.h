@@ -47,3 +47,4 @@ extern bool                     g_updating_combos; // guard programmatic changes
 extern FreeDVReporter*          g_reporter;        // FreeDV Reporter client
 extern std::string              g_last_rx_callsign;// last callsign sent to reporter
 extern uint64_t                 g_last_reporter_freq; // last frequency sent to reporter
+extern GtkWidget*               g_message_entry;      // reporter free-text message

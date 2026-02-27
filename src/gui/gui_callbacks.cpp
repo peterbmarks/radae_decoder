@@ -434,3 +434,11 @@ void on_reporter(GtkMenuItem* /*item*/, gpointer /*data*/)
 {
     gtk_show_uri_on_window(nullptr, "https://qso.freedv.org", GDK_CURRENT_TIME, nullptr);
 }
+
+/* Send reporter message */
+void on_send_message(GtkButton* /*btn*/, gpointer /*data*/)
+{
+    if (!g_reporter || !g_message_entry) return;
+    const char* text = gtk_entry_get_text(GTK_ENTRY(g_message_entry));
+    g_reporter->updateMessage(text ? text : "");
+}

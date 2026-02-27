@@ -33,3 +33,6 @@ void on_quit(GtkMenuItem* item, gpointer app);
 void on_settings(GtkMenuItem* item, gpointer data);
 void on_rig_control(GtkMenuItem* item, gpointer data);
 void on_reporter(GtkMenuItem* item, gpointer data);
+
+/* Reporter message */
+void on_send_message(GtkButton* btn, gpointer data);

@@ -38,6 +38,7 @@ bool                     g_updating_combos    = false;     // guard programmatic
 FreeDVReporter*          g_reporter           = nullptr;   // FreeDV Reporter client
 std::string              g_last_rx_callsign;               // last callsign sent to reporter
 uint64_t                 g_last_reporter_freq = 0;         // last frequency sent to reporter
+GtkWidget*               g_message_entry      = nullptr;   // reporter free-text message
 
 /* ── entry point ────────────────────────────────────────────────────────── */
 

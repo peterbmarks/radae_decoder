@@ -4,3 +4,4 @@ build-macos/
 .cache/
 .claude/
 .vscode/
+.vscode/c_cpp_properties.json

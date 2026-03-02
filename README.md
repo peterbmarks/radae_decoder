@@ -8,6 +8,16 @@ A real-time RADAE (Radio Autoencoder) encoder and decoder for Linux. In receive 
 
 ![Platform](https://img.shields.io/badge/Platform-Linux-blue) ![GTK3](https://img.shields.io/badge/GUI-GTK3-green) ![ALSA](https://img.shields.io/badge/Audio-ALSA-orange) ![RADAE](https://img.shields.io/badge/Codec-RADAE-purple)
 
+## Not an official release
+
+Note that this version of the FreeDV RADEV1 software started as an experiment to find out if Claude Code could help
+with the work of porting the current Python implementation over to C. 
+
+It's not a supported product of the project and hasn't been fully tested or code reviewed.
+
+If it works for you, great, if not I advise using the supported FreeDV app you can [download here](https://freedv.org/download/).
+
+## Screenshots
 
 ![Screenshot](images/screenshot.png)
 

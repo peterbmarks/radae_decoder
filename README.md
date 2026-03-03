@@ -99,7 +99,7 @@ The RADAE codec uses a 30-carrier OFDM waveform in ~1.3 kHz bandwidth. Each 120 
   - `libgtk-3-dev`
   - `libasound2-dev` (if using `-DAUDIO_BACKEND=ALSA`)
   - `libpulse-dev` (if using `-DAUDIO_BACKEND=PULSE` default on Linux)
-  - `libhamlib-dev`
+  - `libhamlib-dev` (GUI only)
   - `libcairo2-dev` (usually pulled in by GTK3)
 
 ### Install dependencies (Debian/Ubuntu)
@@ -108,6 +108,11 @@ The RADAE codec uses a 30-carrier OFDM waveform in ~1.3 kHz bandwidth. Each 120 
 sudo apt-get install build-essential cmake \
   libgtk-3-dev libasound2-dev pkg-config \
   autoconf automake libtool libpulse-dev libhamlib-dev
+
+# Tools-only (no GUI build, no GTK/Hamlib needed)
+sudo apt-get install build-essential cmake \
+  libasound2-dev pkg-config \
+  autoconf automake libtool libpulse-dev
 
 # Optional: PulseAudio backend
 sudo apt-get install libpulse-dev
@@ -122,12 +127,16 @@ mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 
+# Tools-only build (skip RADAE_Gui and GUI deps)
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF ..
+
 # First build downloads Opus (~175 MB) and compiles everything.
 # The NN weight files (rade_enc_data.c, rade_dec_data.c) are ~47 MB
 # and take a while to compile.
 make -j$(nproc)
 
 # Binary is now at: build/RADAE_Gui
+# Tools are at: build/tools/
 ```
 
 ### Audio backend selection

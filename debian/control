@@ -10,15 +10,18 @@ Build-Depends: debhelper-compat (= 13),
                automake,
                libtool,
                pkg-config | pkgconf,
+               libgtk-3-dev <!pkg.minimal>,
+               libhamlib-dev <!pkg.minimal>,
                libpulse-dev
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 Homepage: https://github.com/peterbmarks/radae_decoder
 
 Package: webrx-rade-decode
+Build-Profiles: <!pkg.minimal>
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: RADAE streaming audio decoder for OpenWebRX
+Description: RADAE command-line tools including streaming decoder for OpenWebRX
  webrx-rade-decode reads 16-bit signed mono audio at 8000 Hz from stdin,
  decodes RADAE (Radio Autoencoder) signals, and writes 16-bit signed mono
  audio at 8000 Hz to stdout.
@@ -28,5 +31,18 @@ Description: RADAE streaming audio decoder for OpenWebRX
  Hilbert transform, RADAE RX (OFDM demodulator plus neural decoder), and
  the FARGAN vocoder into a single self-contained command-line tool.
  .
+ Includes RADAE_Gui plus additional CLI tools: lpcnet_demo, radae_tx, radae_rx,
+ real2iq, rade_demod, rade_modulate, and radae_headless.
+ .
  All neural network weights are compiled into the binary; no external
  model files are required at runtime.
+
+Package: webrx-rade-decode-minimal
+Build-Profiles: <pkg.minimal>
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: RADAE command-line tools (minimal, no GUI)
+ Minimal package containing only command-line RADAE tools.
+ .
+ Includes: lpcnet_demo, radae_tx, radae_rx, real2iq, rade_demod,
+ rade_modulate, webrx_rade_decode, and radae_headless.

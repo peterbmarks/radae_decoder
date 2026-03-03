@@ -4,26 +4,47 @@ export DH_VERBOSE = 1
 
 DEB_HOST_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 BUILDDIR = debian/build-$(DEB_HOST_GNU_TYPE)
+IS_MINIMAL = $(filter pkg.minimal,$(DEB_BUILD_PROFILES))
+
+CLI_TOOLS = lpcnet_demo radae_tx radae_rx real2iq rade_demod rade_modulate webrx_rade_decode radae_headless
+
+ifneq ($(IS_MINIMAL),)
+BUILD_TARGETS = $(CLI_TOOLS)
+INSTALL_PACKAGE = webrx-rade-decode-minimal
+MODE_LABEL = minimal CLI-tools
+else
+BUILD_TARGETS = $(CLI_TOOLS) RADAE_Gui
+INSTALL_PACKAGE = webrx-rade-decode
+MODE_LABEL = full
+endif
 
 %:
 	dh $@
 
 override_dh_auto_configure:
 	mkdir -p $(BUILDDIR)
+	@echo "Configuring $(MODE_LABEL) build"
 	cd $(BUILDDIR) && cmake $(CURDIR) \
 		-DAUDIO_BACKEND=PULSE \
+		-DBUILD_GUI=$(if $(IS_MINIMAL),OFF,ON) \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_VERBOSE_MAKEFILE=ON
 
 override_dh_auto_build:
-	$(MAKE) -C $(BUILDDIR) webrx_rade_decode -j$(shell nproc)
+	$(MAKE) -C $(BUILDDIR) $(BUILD_TARGETS) -j$(shell nproc)
 
 override_dh_auto_test:
 	# No automated tests.
 
 override_dh_auto_install:
-	install -D -m 0755 $(BUILDDIR)/tools/webrx_rade_decode \
-		debian/webrx-rade-decode/usr/bin/webrx_rade_decode
+	for tool in $(CLI_TOOLS); do \
+		install -D -m 0755 $(BUILDDIR)/tools/$$tool \
+			debian/$(INSTALL_PACKAGE)/usr/bin/$$tool; \
+	done
+ifeq ($(IS_MINIMAL),)
+	install -D -m 0755 $(BUILDDIR)/RADAE_Gui \
+		debian/webrx-rade-decode/usr/bin/RADAE_Gui
+endif
 
 override_dh_auto_clean:
 	rm -rf $(BUILDDIR)

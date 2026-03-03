@@ -9,28 +9,34 @@ set(CMAKE_C_STANDARD 11)
 # "compileCommands": "${workspaceFolder}/build/compile_commands.json",
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(BUILD_GUI "Build RADAE_Gui and GUI dependencies" ON)
+
 # ── external deps ────────────────────────────────────────────────────────────
 find_package(PkgConfig  REQUIRED)
 find_package(Threads    REQUIRED)
 
-# ── IXWebSocket (plain WebSocket client, no TLS required for ws://) ───────────
-include(FetchContent)
+if(BUILD_GUI)
+    # ── IXWebSocket (plain WebSocket client, no TLS required for ws://) ───────
+    include(FetchContent)
 
-# Disable features that would add extra system dependencies.
-set(USE_TLS  OFF CACHE BOOL "Disable TLS in IXWebSocket"  FORCE)
-set(USE_ZLIB OFF CACHE BOOL "Disable zlib in IXWebSocket" FORCE)
-set(IXWEBSOCKET_INSTALL OFF CACHE BOOL "" FORCE)
+    # Disable features that would add extra system dependencies.
+    set(USE_TLS  OFF CACHE BOOL "Disable TLS in IXWebSocket"  FORCE)
+    set(USE_ZLIB OFF CACHE BOOL "Disable zlib in IXWebSocket" FORCE)
+    set(IXWEBSOCKET_INSTALL OFF CACHE BOOL "" FORCE)
 
-FetchContent_Declare(
-    IXWebSocket
-    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
-    GIT_TAG        v11.4.4
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(IXWebSocket)
+    FetchContent_Declare(
+        IXWebSocket
+        GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+        GIT_TAG        v11.4.4
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(IXWebSocket)
+endif()
 
-pkg_check_modules(GTK       REQUIRED gtk+-3.0)
-pkg_check_modules(HAMLIB    REQUIRED hamlib)
+if(BUILD_GUI)
+    pkg_check_modules(GTK       REQUIRED gtk+-3.0)
+    pkg_check_modules(HAMLIB    REQUIRED hamlib)
+endif()
 
 # ── audio backend selection ───────────────────────────────────────────────────
 # Default: PORTAUDIO on macOS, ALSA on Linux.
@@ -65,23 +71,27 @@ endif()
 
 message(STATUS "Audio backend: ${AUDIO_BACKEND}")
 
-link_directories(${GTK_LIBRARY_DIRS})
+if(BUILD_GUI)
+    link_directories(${GTK_LIBRARY_DIRS})
+endif()
 
-add_subdirectory(src/yyjson)
+if(BUILD_GUI)
+    add_subdirectory(src/yyjson)
 
-# ── FreeDV Reporter network library ───────────────────────────────────────────
-add_library(network STATIC
-    src/network/socket_io.cpp
-    src/network/freedv_reporter.cpp
-)
-target_include_directories(network PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-target_link_libraries(network PUBLIC
-    ixwebsocket
-    yyjson
-    Threads::Threads
-)
+    # ── FreeDV Reporter network library ───────────────────────────────────────
+    add_library(network STATIC
+        src/network/socket_io.cpp
+        src/network/freedv_reporter.cpp
+    )
+    target_include_directories(network PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    target_link_libraries(network PUBLIC
+        ixwebsocket
+        yyjson
+        Threads::Threads
+    )
+endif()
 
 # ── Opus (with FARGAN/LPCNet support) ────────────────────────────────────────
 include(cmake/BuildOpus.cmake)
@@ -157,49 +167,51 @@ set_target_properties(lpcnet_demo radae_tx radae_rx real2iq rade_demod rade_modu
 )
 
 # ── GUI application ──────────────────────────────────────────────────────────
-add_executable(RADAE_Gui
-    src/gui/main.cpp
-    src/gui/gui_config.cpp
-    src/gui/gui_controls.cpp
-    src/gui/gui_callbacks.cpp
-    src/gui/gui_activate.cpp
-    src/audio/audio_input.cpp
-    src/gui/meter_widget.cpp
-    src/radae_top/rade_decoder.cpp
-    src/radae_top/rade_encoder.cpp
-    src/radae_top/audio_passthrough.cpp
-    src/eoo/EooCallsignCodec.cpp
-    src/gui/rig_control.cpp
-    src/gui/spectrum_widget.cpp
-    src/gui/waterfall_widget.cpp
-    src/wav/wav_recorder.cpp
-    ${AUDIO_BACKEND_SRC}
-)
+if(BUILD_GUI)
+    add_executable(RADAE_Gui
+        src/gui/main.cpp
+        src/gui/gui_config.cpp
+        src/gui/gui_controls.cpp
+        src/gui/gui_callbacks.cpp
+        src/gui/gui_activate.cpp
+        src/audio/audio_input.cpp
+        src/gui/meter_widget.cpp
+        src/radae_top/rade_decoder.cpp
+        src/radae_top/rade_encoder.cpp
+        src/radae_top/audio_passthrough.cpp
+        src/eoo/EooCallsignCodec.cpp
+        src/gui/rig_control.cpp
+        src/gui/spectrum_widget.cpp
+        src/gui/waterfall_widget.cpp
+        src/wav/wav_recorder.cpp
+        ${AUDIO_BACKEND_SRC}
+    )
 
-target_include_directories(RADAE_Gui PRIVATE
-    ${GTK_INCLUDE_DIRS}
-    ${HAMLIB_INCLUDE_DIRS}
-    ${AUDIO_BACKEND_INCS}
-    ${OPUS_SOURCE_DIR}/dnn
-    ${OPUS_SOURCE_DIR}/celt
-    ${OPUS_SOURCE_DIR}/include
-    ${OPUS_SOURCE_DIR}
-)
+    target_include_directories(RADAE_Gui PRIVATE
+        ${GTK_INCLUDE_DIRS}
+        ${HAMLIB_INCLUDE_DIRS}
+        ${AUDIO_BACKEND_INCS}
+        ${OPUS_SOURCE_DIR}/dnn
+        ${OPUS_SOURCE_DIR}/celt
+        ${OPUS_SOURCE_DIR}/include
+        ${OPUS_SOURCE_DIR}
+    )
 
-target_link_libraries(RADAE_Gui
-    rade
-    opus
-    m
-    ${GTK_LIBRARIES}
-    ${HAMLIB_LIBRARIES}
-    ${AUDIO_BACKEND_LIBS}
-    network
-    Threads::Threads
-)
+    target_link_libraries(RADAE_Gui
+        rade
+        opus
+        m
+        ${GTK_LIBRARIES}
+        ${HAMLIB_LIBRARIES}
+        ${AUDIO_BACKEND_LIBS}
+        network
+        Threads::Threads
+    )
 
-link_directories(${HAMLIB_LIBRARY_DIRS})
+    link_directories(${HAMLIB_LIBRARY_DIRS})
 
-target_compile_options(RADAE_Gui PRIVATE
-    ${GTK_CFLAGS_OTHER}
-    -Wall -Wextra -Wpedantic
-)
+    target_compile_options(RADAE_Gui PRIVATE
+        ${GTK_CFLAGS_OTHER}
+        -Wall -Wextra -Wpedantic
+    )
+endif()

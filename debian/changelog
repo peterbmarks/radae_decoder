@@ -1,5 +1,7 @@
-webrx-rade-decode (0.1.0-1) unstable; urgency=low
+webrx-rade-decode (0.1.0) unstable; urgency=low
 
   * Initial Debian packaging.
+  * Add optional pkg.minimal profile to build webrx-rade-decode-minimal
+    with CLI tools only; keep default full package behavior unchanged.
 
  -- Peter B Marks <peter@example.com>  Mon, 03 Mar 2026 00:00:00 +0000

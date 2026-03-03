@@ -1,4 +1,5 @@
 build/
+build-mac/
 tx.iq
 build-macos/
 .cache/

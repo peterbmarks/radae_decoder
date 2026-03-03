@@ -197,7 +197,10 @@ void start_encoder(int mic_idx, int radio_idx)
     if (g_recording && g_recorder)
         g_encoder->set_recorder(g_recorder);
     set_btn_state(true);
-    set_status("Transmitting\xe2\x80\xa6");
+    if (rig_is_connected() && (!rig_is_ptt_supported() || !rig_get_ptt_on()))
+        set_status("Transmitting audio\xe2\x80\xa6 CAT PTT unsupported (use VOX/external PTT).");
+    else
+        set_status("Transmitting\xe2\x80\xa6");
     g_timer = g_timeout_add(33, on_meter_tick, nullptr);
 }
 

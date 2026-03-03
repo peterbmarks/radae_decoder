@@ -16,7 +16,10 @@ GtkWidget* rig_control_create_dialog(GtkWidget* parent_window);
 /* Returns the currently selected rig model_id as a decimal string, or "". */
 std::string rig_config_get_model_id();
 
-/* Returns the currently selected (or typed) serial port path, or "". */
+/* Returns either:
+   - selected serial port path, or
+   - "tcp://host:port" when TCP CAT is selected,
+   or "". */
 std::string rig_config_get_port();
 
 /* Returns the currently selected baud rate string, or "". */
@@ -32,13 +35,14 @@ void rig_config_restore(const std::string& model_id,
    rig settings are written to disk immediately on change. */
 void rig_control_set_save_callback(void (*cb)());
 
-/* If a radio model and serial port are already configured, attempt to
-   connect automatically.  On failure an error alert is shown parented to
-   `parent`.  Call this once after rig_config_restore(). */
+/* If a radio model and CAT endpoint (serial or TCP) are already configured,
+   attempt to connect automatically.  On failure an error alert is shown
+   parented to `parent`.  Call this once after rig_config_restore(). */
 void rig_auto_connect(GtkWindow* parent);
 
 /* ── real-time state queries (for the main-window status line) ────────── */
 bool        rig_is_connected();
+bool        rig_is_ptt_supported();
 std::string rig_get_current_freq();   /* e.g. "14.225.000 MHz", or "" */
 std::string rig_get_current_mode();   /* e.g. "USB", or ""            */
 bool        rig_get_ptt_on();

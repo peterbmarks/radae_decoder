@@ -103,6 +103,9 @@ target_link_libraries(rade opus m)
 target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1 -DRADE_PYTHON_FREE=1)
 target_include_directories(rade PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+enable_testing()
+add_subdirectory(tests)
+
 set_target_properties(rade PROPERTIES
     VERSION 0.1
     SOVERSION 0.1

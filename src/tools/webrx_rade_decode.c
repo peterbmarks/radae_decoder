@@ -194,8 +194,8 @@ int main(int argc, char *argv[]) {
         int has_eoo = 0;
         int n_out   = rade_rx(r, feat_buf, &has_eoo, eoo_buf, iq_buf);
 
-        if (has_eoo && verbose >= 1)
-            fprintf(stderr, "End-of-over at modem frame %d\n", mf_count);
+        if (has_eoo)
+            fprintf(stderr, "Status=End-of-over at modem frame %d\n", mf_count);
 
         /* Re-init FARGAN when sync is newly acquired so we get a clean
            warm-up for each transmission. */
@@ -206,6 +206,11 @@ int main(int argc, char *argv[]) {
             cont_frames  = 0;
         }
         was_synced = synced;
+        if(synced) {
+            fprintf(stderr, "Status:Sync\n");
+        } else {
+            fprintf(stderr, "Status:Searching\n");
+        }
 
         if (n_out > 0) {
             vld_count++;
@@ -256,7 +261,7 @@ int main(int argc, char *argv[]) {
         mf_count++;
     }
 
-    if (verbose >= 1)
+    if (verbose > 1)
         fprintf(stderr, "Modem frames: %d   valid: %d\n", mf_count, vld_count);
 
     /* ---- cleanup ---- */

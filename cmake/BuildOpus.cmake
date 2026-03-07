@@ -1,5 +1,7 @@
 message(STATUS "Will build opus with FARGAN")
 
+option(AVX "Enable AVX CPU optimizations." ON)
+
 set(CONFIGURE_COMMAND ./autogen.sh && ./configure --enable-osce --enable-dred --disable-shared --disable-doc --disable-extra-programs CFLAGS=-march=native\ -O2)
 
 if (CMAKE_CROSSCOMPILING)

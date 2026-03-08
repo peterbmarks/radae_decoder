@@ -111,6 +111,8 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     GtkWidget* reporter_mi = gtk_menu_item_new_with_label("FreeDV Reporter\xe2\x80\xa6");
     g_signal_connect(reporter_mi, "activate", G_CALLBACK(on_reporter), nullptr);
+    gtk_widget_add_accelerator(reporter_mi, "activate", accel_group,
+                               GDK_KEY_r, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
     gtk_menu_shell_append(GTK_MENU_SHELL(edit_menu), reporter_mi);
 
     gtk_menu_item_set_submenu(GTK_MENU_ITEM(edit_mi), edit_menu);

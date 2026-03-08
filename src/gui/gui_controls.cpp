@@ -197,6 +197,18 @@ void reporter_restart()
         }, nullptr);
     });
 
+    g_reporter->setStationRemoveCallback([](const std::string& sid) {
+        // Remove this SID from the persistent accumulator on the GTK thread.
+        auto* sidCopy = new std::string(sid);
+        g_idle_add(+[](gpointer p) -> gboolean {
+            auto* s = static_cast<std::string*>(p);
+            s_seen_stations.erase(*s);
+            delete s;
+            refresh_reporter_list();
+            return G_SOURCE_REMOVE;
+        }, sidCopy);
+    });
+
     g_reporter->connect();
 
     /* Re-send the saved free-text message so the reporter shows it immediately

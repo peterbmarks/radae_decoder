@@ -260,6 +260,11 @@ void FreeDVReporter::setStationUpdateCallback(std::function<void()> cb)
     stationUpdateCb_ = std::move(cb);
 }
 
+void FreeDVReporter::setStationRemoveCallback(std::function<void(const std::string& sid)> cb)
+{
+    stationRemoveCb_ = std::move(cb);
+}
+
 void FreeDVReporter::setQsyRequestCallback(
     std::function<void(const std::string&, uint64_t, const std::string&)> cb)
 {
@@ -354,7 +359,10 @@ void FreeDVReporter::onRemoveConnection(const std::string& data)
         stations_.erase(sid);
     }
 
-    if (!suppressUpdateCb_ && stationUpdateCb_) stationUpdateCb_();
+    if (!suppressUpdateCb_) {
+        if (stationRemoveCb_) stationRemoveCb_(sid);
+        if (stationUpdateCb_) stationUpdateCb_();
+    }
 }
 
 void FreeDVReporter::onFreqChange(const std::string& data)

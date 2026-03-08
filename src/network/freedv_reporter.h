@@ -156,6 +156,10 @@ public:
     /// Invoked (from the Socket.IO thread) whenever the station list changes.
     void setStationUpdateCallback(std::function<void()> cb);
 
+    /// Invoked (from the Socket.IO thread) when a station disconnects.
+    /// The argument is the SID of the removed station.
+    void setStationRemoveCallback(std::function<void(const std::string& sid)> cb);
+
     /// Invoked when a remote station sends a qsy_request targeting this client.
     void setQsyRequestCallback(
         std::function<void(const std::string& callsign,
@@ -215,6 +219,7 @@ private:
 
     // ── User callbacks ─────────────────────────────────────────────────────
     std::function<void()> stationUpdateCb_;
+    std::function<void(const std::string&)> stationRemoveCb_;
     std::function<void(const std::string&, uint64_t, const std::string&)>
         qsyRequestCb_;
 };

@@ -104,7 +104,7 @@ The RADAE codec uses a 30-carrier OFDM waveform in ~1.3 kHz bandwidth. Each 120 
 
 ### Install dependencies (Debian/Ubuntu)
 ```bash
-# Default (ALSA backend)
+# Default
 sudo apt-get install build-essential cmake \
   libgtk-3-dev libasound2-dev pkg-config \
   autoconf automake libtool libpulse-dev libhamlib-dev

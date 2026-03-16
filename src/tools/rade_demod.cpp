@@ -44,13 +44,13 @@
 #include <math.h>
 #include <getopt.h>
 
-#include "../radae/rade_api.h"
-#include "../radae/rade_dsp.h"
+#include "rade_api.h"
+#include "rade_dsp.h"
 extern "C" {
 #include "fargan.h"
 #include "lpcnet.h"
 }
-#include "../src/eoo/EooCallsignCodec.h"
+#include "../eoo/EooCallsignCodec.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

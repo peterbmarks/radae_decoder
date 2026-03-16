@@ -97,12 +97,25 @@ endif()
 option(AVX "Enable AVX CPU optimizations." ON)
 include(cmake/BuildOpus.cmake)
 
-# ── RADE library (Python-free) ───────────────────────────────────────────────
-add_subdirectory(src/radae)
+# ── RADE library (from radae_nopy subproject) ────────────────────────────────
+set(RADE_NOPY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/extern/radae_nopy/src)
 
+add_library(rade STATIC
+    ${RADE_NOPY_SRC}/rade_api_nopy.c
+    ${RADE_NOPY_SRC}/rade_enc.c
+    ${RADE_NOPY_SRC}/rade_dec.c
+    ${RADE_NOPY_SRC}/rade_enc_data.c
+    ${RADE_NOPY_SRC}/rade_dec_data.c
+    ${RADE_NOPY_SRC}/rade_dsp.c
+    ${RADE_NOPY_SRC}/rade_ofdm.c
+    ${RADE_NOPY_SRC}/rade_bpf.c
+    ${RADE_NOPY_SRC}/rade_acq.c
+    ${RADE_NOPY_SRC}/rade_tx.c
+    ${RADE_NOPY_SRC}/rade_rx.c
+)
 target_link_libraries(rade opus m)
 target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1 -DRADE_PYTHON_FREE=1)
-target_include_directories(rade PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(rade PUBLIC ${RADE_NOPY_SRC})
 
 enable_testing()
 add_subdirectory(tests)
@@ -110,7 +123,7 @@ add_subdirectory(tests)
 set_target_properties(rade PROPERTIES
     VERSION 0.1
     SOVERSION 0.1
-    PUBLIC_HEADER "src/rade_api.h"
+    PUBLIC_HEADER "${RADE_NOPY_SRC}/rade_api.h"
 )
 
 # ── RADE utilities ───────────────────────────────────────────────────────────

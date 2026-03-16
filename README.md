@@ -128,24 +128,33 @@ gtk+3 hamlib portaudio
 
 ## Build Instructions
 
+
 ```bash
 cd radae_decoder
+```
 
+Pull the librade git submodule with:
+```
+git submodule update --init
+```
+Prepare the make file:
+```
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
-
-# Tools-only build (skip RADAE_Gui and GUI deps)
-cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF ..
-
-# First build downloads Opus (~175 MB) and compiles everything.
-# The NN weight files (rade_enc_data.c, rade_dec_data.c) are ~47 MB
-# and take a while to compile.
-make -j$(nproc)
-
-# Binary is now at: build/RADAE_Gui
-# Tools are at: build/tools/
 ```
+Tools-only build (skip RADAE_Gui and GUI deps)
+```
+cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF ..
+```
+First build downloads Opus (~175 MB) and compiles everything.
+The NN weight files (rade_enc_data.c, rade_dec_data.c) are ~47 MB
+and take a while to compile.
+```
+make -j$(nproc)
+```
+Binary is now at: build/RADAE_Gui
+Tools are at: build/tools/
 
 ### Audio backend selection
 
@@ -479,6 +488,13 @@ Usage:
 rade_modulate [-v 0|1|2] <intput.wav> <output.wav>
 ```
 
+### Round trip test
+```
+./tools/rade_modulate ../voice.wav rade.wav
+./tools/rade_demod rade.wav decoded.wav
+play decoded.wav
+```
+
 ### Encode: WAV → IQ
 ```
 sox ../voice.wav -r 16000 -t .s16 -c 1 - | \
@@ -502,6 +518,7 @@ usage: radae_rx [options]
   -v LEVEL             Verbosity level (0, 1, or 2)
   --no-unsync          Disable automatic unsync
 ```
+
 
 ```
 sox ../FDV_offair.wav -r 8000 -e float -b 32 -c 1 -t raw - | \

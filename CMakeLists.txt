@@ -36,6 +36,15 @@ endif()
 if(BUILD_GUI)
     pkg_check_modules(GTK       REQUIRED gtk+-3.0)
     pkg_check_modules(HAMLIB    REQUIRED hamlib)
+
+    # Detect whether rig_state has the ptt_type field (added in newer hamlib).
+    include(CheckStructHasMember)
+    set(CMAKE_REQUIRED_INCLUDES  ${HAMLIB_INCLUDE_DIRS})
+    set(CMAKE_REQUIRED_LIBRARIES ${HAMLIB_LIBRARIES})
+    check_struct_has_member("struct rig_state" ptt_type "hamlib/rig.h"
+        HAMLIB_RIG_STATE_HAS_PTT_TYPE LANGUAGE C)
+    unset(CMAKE_REQUIRED_INCLUDES)
+    unset(CMAKE_REQUIRED_LIBRARIES)
 endif()
 
 # ── audio backend selection ───────────────────────────────────────────────────
@@ -231,4 +240,7 @@ if(BUILD_GUI)
         ${GTK_CFLAGS_OTHER}
         -Wall -Wextra -Wpedantic
     )
+    if(HAMLIB_RIG_STATE_HAS_PTT_TYPE)
+        target_compile_definitions(RADAE_Gui PRIVATE HAMLIB_RIG_STATE_HAS_PTT_TYPE)
+    endif()
 endif()

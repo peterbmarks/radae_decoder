@@ -1,6 +1,9 @@
 #include "gui_app_state.h"
 #include "gui_activate.h"
 #include "../src/audio/audio_input.h"
+#ifdef __APPLE__
+#include "../src/audio/macos_audio_permission.h"
+#endif
 
 /* ── global definitions (single-window app) ─────────────────────────────── */
 
@@ -51,6 +54,9 @@ GtkWidget*               g_reporter_count_lbl = nullptr;   // "N stations" label
 
 int main(int argc, char* argv[])
 {
+#ifdef __APPLE__
+    macos_request_microphone_permission();
+#endif
     audio_init();
 
     GtkApplication* app = gtk_application_new("org.simpledecoder.RADAEDecoder",

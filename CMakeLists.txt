@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
-project(RADAE_Gui LANGUAGES C CXX)
+if(APPLE)
+    project(RADAE_Gui LANGUAGES C CXX OBJCXX)
+else()
+    project(RADAE_Gui LANGUAGES C CXX)
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -62,6 +66,13 @@ if(AUDIO_BACKEND STREQUAL "PORTAUDIO")
     set(AUDIO_BACKEND_LIBS   ${PORTAUDIO_LIBRARIES})
     set(AUDIO_BACKEND_INCS   ${PORTAUDIO_INCLUDE_DIRS})
     link_directories(${PORTAUDIO_LIBRARY_DIRS})
+    if(APPLE)
+        list(APPEND AUDIO_BACKEND_SRC src/audio/macos_audio_permission.mm)
+        list(APPEND AUDIO_BACKEND_LIBS
+            "-framework AVFoundation"
+            "-framework CoreMedia"
+        )
+    endif()
 elseif(AUDIO_BACKEND STREQUAL "PULSE")
     pkg_check_modules(PULSE REQUIRED libpulse libpulse-simple)
     set(AUDIO_BACKEND_SRC    src/audio/audio_stream_pulse.cpp)
@@ -198,7 +209,7 @@ set_target_properties(lpcnet_demo radae_tx radae_rx real2iq rade_demod rade_modu
 
 # ── GUI application ──────────────────────────────────────────────────────────
 if(BUILD_GUI)
-    add_executable(RADAE_Gui
+    add_executable(RADAE_Gui MACOSX_BUNDLE
         src/gui/main.cpp
         src/gui/gui_config.cpp
         src/gui/gui_controls.cpp
@@ -239,6 +250,16 @@ if(BUILD_GUI)
     )
 
     link_directories(${HAMLIB_LIBRARY_DIRS})
+
+    if(APPLE)
+        set_target_properties(RADAE_Gui PROPERTIES
+            MACOSX_BUNDLE_GUI_IDENTIFIER  "org.simpledecoder.RADAEDecoder"
+            MACOSX_BUNDLE_BUNDLE_NAME     "RADAE_Gui"
+            MACOSX_BUNDLE_BUNDLE_VERSION  "1.0"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+            MACOSX_BUNDLE_INFO_PLIST      "${CMAKE_SOURCE_DIR}/cmake/MacOSXBundleInfo.plist.in"
+        )
+    endif()
 
     target_compile_options(RADAE_Gui PRIVATE
         ${GTK_CFLAGS_OTHER}

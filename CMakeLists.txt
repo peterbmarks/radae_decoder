@@ -252,11 +252,39 @@ if(BUILD_GUI)
     link_directories(${HAMLIB_LIBRARY_DIRS})
 
     if(APPLE)
+        # Convert images/icon.png → AppIcon.icns and bundle it as a resource
+        set(ICON_PNG "${CMAKE_SOURCE_DIR}/images/icon.png")
+        set(ICONSET_DIR "${CMAKE_BINARY_DIR}/AppIcon.iconset")
+        set(ICNS_FILE "${CMAKE_BINARY_DIR}/AppIcon.icns")
+
+        add_custom_command(OUTPUT "${ICNS_FILE}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${ICONSET_DIR}"
+            COMMAND sips -z 16   16   "${ICON_PNG}" --out "${ICONSET_DIR}/icon_16x16.png"
+            COMMAND sips -z 32   32   "${ICON_PNG}" --out "${ICONSET_DIR}/icon_16x16@2x.png"
+            COMMAND sips -z 32   32   "${ICON_PNG}" --out "${ICONSET_DIR}/icon_32x32.png"
+            COMMAND sips -z 64   64   "${ICON_PNG}" --out "${ICONSET_DIR}/icon_32x32@2x.png"
+            COMMAND sips -z 128  128  "${ICON_PNG}" --out "${ICONSET_DIR}/icon_128x128.png"
+            COMMAND sips -z 256  256  "${ICON_PNG}" --out "${ICONSET_DIR}/icon_128x128@2x.png"
+            COMMAND sips -z 256  256  "${ICON_PNG}" --out "${ICONSET_DIR}/icon_256x256.png"
+            COMMAND sips -z 512  512  "${ICON_PNG}" --out "${ICONSET_DIR}/icon_256x256@2x.png"
+            COMMAND sips -z 512  512  "${ICON_PNG}" --out "${ICONSET_DIR}/icon_512x512.png"
+            COMMAND sips -z 1024 1024 "${ICON_PNG}" --out "${ICONSET_DIR}/icon_512x512@2x.png"
+            COMMAND iconutil -c icns "${ICONSET_DIR}" -o "${ICNS_FILE}"
+            DEPENDS "${ICON_PNG}"
+            COMMENT "Generating AppIcon.icns from icon.png"
+        )
+
+        target_sources(RADAE_Gui PRIVATE "${ICNS_FILE}")
+        set_source_files_properties("${ICNS_FILE}" PROPERTIES
+            MACOSX_PACKAGE_LOCATION "Resources"
+        )
+
         set_target_properties(RADAE_Gui PROPERTIES
             MACOSX_BUNDLE_GUI_IDENTIFIER  "org.simpledecoder.RADAEDecoder"
             MACOSX_BUNDLE_BUNDLE_NAME     "RADAE_Gui"
             MACOSX_BUNDLE_BUNDLE_VERSION  "1.0"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+            MACOSX_BUNDLE_ICON_FILE       "AppIcon"
             MACOSX_BUNDLE_INFO_PLIST      "${CMAKE_SOURCE_DIR}/cmake/MacOSXBundleInfo.plist.in"
         )
     endif()

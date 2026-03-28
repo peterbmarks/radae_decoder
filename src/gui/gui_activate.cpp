@@ -130,7 +130,12 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_window_set_default_size(GTK_WINDOW(g_reporter_win), 720, 340);
     gtk_window_set_transient_for(GTK_WINDOW(g_reporter_win), GTK_WINDOW(window));
     g_signal_connect(g_reporter_win, "delete-event",
-                     G_CALLBACK(gtk_widget_hide_on_delete), nullptr);
+                     G_CALLBACK(+[](GtkWidget* w, GdkEvent*, gpointer) -> gboolean {
+                         gtk_widget_hide(w);
+                         delete g_reporter;
+                         g_reporter = nullptr;
+                         return TRUE; /* suppress destroy */
+                     }), nullptr);
 
     {
         GtkWidget* rep_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -489,6 +494,4 @@ void activate(GtkApplication* app, gpointer /*data*/)
     /* ── auto-connect to rig if settings were saved ─────────────── */
     rig_auto_connect(GTK_WINDOW(window));
 
-    /* ── connect to FreeDV Reporter ─────────────────────────────── */
-    reporter_restart();
 }

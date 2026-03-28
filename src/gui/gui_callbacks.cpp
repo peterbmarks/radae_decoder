@@ -499,8 +499,11 @@ void on_rig_control(GtkMenuItem* /*item*/, gpointer /*data*/)
 /* Edit > FreeDV Reporter */
 void on_reporter(GtkMenuItem* /*item*/, gpointer /*data*/)
 {
-    if (g_reporter_win)
-        gtk_widget_show_all(g_reporter_win);
+    if (!g_reporter_win)
+        return;
+    if (!g_reporter)
+        reporter_restart();
+    gtk_widget_show_all(g_reporter_win);
 }
 
 /* Reporter callsign filter changed */

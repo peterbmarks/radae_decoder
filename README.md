@@ -133,16 +133,6 @@ gtk+3 hamlib portaudio
 cd radae_decoder
 ```
 
-Pull the librade git submodule with:
-```
-git submodule update --init
-```
-
-Later, to update the submodules:
-```
-git submodule update --remote --init --recursive
-```
-
 Prepare the make file:
 ```
 mkdir -p build

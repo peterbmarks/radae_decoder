@@ -106,10 +106,10 @@ endif()
 option(AVX "Enable AVX CPU optimizations." ON)
 include(cmake/BuildOpus.cmake)
 
-# ── RADE library (from radae_nopy subproject) ────────────────────────────────
-set(RADE_NOPY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/extern/radae_nopy/src)
+# ── RADE library (fetched via ExternalProject) ───────────────────────────────
+include(cmake/FetchRadaeNopy.cmake)
 
-add_library(rade STATIC
+set(RADE_NOPY_SOURCES
     ${RADE_NOPY_SRC}/rade_api_nopy.c
     ${RADE_NOPY_SRC}/rade_enc.c
     ${RADE_NOPY_SRC}/rade_dec.c
@@ -122,6 +122,10 @@ add_library(rade STATIC
     ${RADE_NOPY_SRC}/rade_tx.c
     ${RADE_NOPY_SRC}/rade_rx.c
 )
+# Files don't exist at configure time (ExternalProject downloads at build time).
+set_source_files_properties(${RADE_NOPY_SOURCES} PROPERTIES GENERATED TRUE)
+add_library(rade STATIC ${RADE_NOPY_SOURCES})
+add_dependencies(rade radae_nopy_src)
 target_link_libraries(rade opus m)
 target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1 -DRADE_PYTHON_FREE=1)
 target_include_directories(rade PUBLIC ${RADE_NOPY_SRC})

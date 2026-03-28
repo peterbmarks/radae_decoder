@@ -106,6 +106,7 @@ void AudioPassthrough::loop()
 
     /* Flush stale audio buffered before the stream started. */
     stream_in_.stop();
+    stream_in_.start();
 
     while (running_.load(std::memory_order_relaxed)) {
         if (stream_in_.read(buf, PASSTHROUGH_FRAMES) != AUDIO_OK) continue;

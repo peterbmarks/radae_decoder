@@ -7,3 +7,4 @@ build-macos/
 .vscode/
 .vscode/c_cpp_properties.json
 webrx-rade-decode_0.1.0-1_amd64/
+.DS_Store

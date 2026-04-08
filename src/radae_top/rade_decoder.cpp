@@ -8,6 +8,10 @@
 #include <vector>
 #include <algorithm>
 #include <mutex>
+#include <fstream>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 /* ── C headers from RADE / Opus (wrapped for C++ linkage) ────────────── */
 extern "C" {
@@ -616,8 +620,23 @@ void RadaeDecoder::processing_loop()
         if (has_eoo) {
             std::string callsign;
             if (eoo_decoder.decode(eoo_buf.data(), n_eoo_bits / 2, callsign)) {
-                std::lock_guard<std::mutex> lk(callsign_mutex_);
-                last_callsign_ = callsign;
+                {
+                    std::lock_guard<std::mutex> lk(callsign_mutex_);
+                    last_callsign_ = callsign;
+                }
+
+                /* log datetime and callsign to file */
+                auto now = std::chrono::system_clock::now();
+                auto t = std::chrono::system_clock::to_time_t(now);
+                std::tm tm_buf;
+                gmtime_r(&t, &tm_buf);
+                std::ostringstream ts;
+                ts << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
+
+                std::ofstream log("eoo_log.txt",
+                                  std::ios::app | std::ios::out);
+                if (log.is_open())
+                    log << ts.str() << " " << callsign << "\n";
             }
         }
 

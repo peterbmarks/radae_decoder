@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
 #include <complex>
 #include <vector>
 #include <algorithm>
@@ -633,7 +634,9 @@ void RadaeDecoder::processing_loop()
                 std::ostringstream ts;
                 ts << std::put_time(&tm_buf, "%Y-%m-%dT%H:%M:%SZ");
 
-                std::ofstream log("eoo_log.txt",
+                const char* home = std::getenv("HOME");
+                std::string log_path = home ? std::string(home) + "/Downloads/eoo_log.txt" : "eoo_log.txt";
+                std::ofstream log(log_path,
                                   std::ios::app | std::ios::out);
                 if (log.is_open())
                     log << ts.str() << " " << callsign << "\n";

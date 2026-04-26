@@ -7,10 +7,11 @@
 #include <string>
 
 // ─── Platform string ──────────────────────────────────────────────────────────
+// API requires lowercase: "windows", "linux", "macos", or empty.
 #ifdef __APPLE__
-static constexpr const char* kOs = "macOS";
+static constexpr const char* kOs = "macos";
 #else
-static constexpr const char* kOs = "Linux";
+static constexpr const char* kOs = "linux";
 #endif
 
 // ─── JSON read helpers ────────────────────────────────────────────────────────
@@ -336,7 +337,6 @@ void FreeDVReporter::onNewConnection(const std::string& data)
     {
         std::lock_guard<std::mutex> lock(stationMutex_);
         stations_[info.sid] = std::move(info);
-        std::cerr << "sid = " << info.sid << '\n';
     }
 
     if (!suppressUpdateCb_ && stationUpdateCb_) stationUpdateCb_();
@@ -359,7 +359,11 @@ void FreeDVReporter::onRemoveConnection(const std::string& data)
         stations_.erase(sid);
     }
 
-    if (!suppressUpdateCb_) {
+    if (suppressUpdateCb_) {
+        // Inside a bulk_update batch — defer the remove callback until the
+        // batch finishes so the GUI gets one consistent notification.
+        bulkRemovedSids_.push_back(sid);
+    } else {
         if (stationRemoveCb_) stationRemoveCb_(sid);
         if (stationUpdateCb_) stationUpdateCb_();
     }
@@ -486,10 +490,19 @@ void FreeDVReporter::onRxReport(const std::string& data)
             it->second.callsign = rxrCall;
         if (it->second.grid_square.empty() && !rxrGrid.empty())
             it->second.grid_square = rxrGrid;
-        it->second.rx_callsign    = rxCall;
-        it->second.rx_mode        = rxMode;
-        it->second.rx_snr         = rxSnr;
-        it->second.rx_last_update = upd;
+        // Empty callsign is the server's "clear RX" signal (sent after a
+        // freq_change). Reset all RX fields so the UI doesn't show stale SNR.
+        if (rxCall.empty()) {
+            it->second.rx_callsign    = "";
+            it->second.rx_mode        = "";
+            it->second.rx_snr         = 0.0;
+            it->second.rx_last_update = "";
+        } else {
+            it->second.rx_callsign    = rxCall;
+            it->second.rx_mode        = rxMode;
+            it->second.rx_snr         = rxSnr;
+            it->second.rx_last_update = upd;
+        }
         it->second.last_update    = upd;
     }
 
@@ -554,14 +567,11 @@ void FreeDVReporter::onBulkUpdate(const std::string& data)
         return;
     }
 
-    // Clear stale state before replaying the bulk snapshot.
-    {
-        std::lock_guard<std::mutex> lock(stationMutex_);
-        stations_.clear();
-    }
-
-    // Suppress per-event callbacks while replaying; issue one at the end.
+    // bulk_update is a batch of incremental events, NOT a fresh snapshot —
+    // do not clear stations_. Suppress per-event callbacks while replaying;
+    // issue one update notification at the end after draining removals.
     suppressUpdateCb_ = true;
+    bulkRemovedSids_.clear();
 
     size_t idx, max;
     yyjson_val* item;
@@ -589,6 +599,14 @@ void FreeDVReporter::onBulkUpdate(const std::string& data)
     suppressUpdateCb_ = false;
 
     yyjson_doc_free(doc);
+
+    // Report each removal that happened during the batch so consumers
+    // (e.g. the GUI's persistent station accumulator) can prune them.
+    if (stationRemoveCb_) {
+        for (const auto& sid : bulkRemovedSids_)
+            stationRemoveCb_(sid);
+    }
+    bulkRemovedSids_.clear();
 
     if (stationUpdateCb_) stationUpdateCb_();
 }

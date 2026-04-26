@@ -34,7 +34,21 @@ if(BUILD_GUI)
         GIT_TAG        v11.4.4
         GIT_SHALLOW    TRUE
     )
-    FetchContent_MakeAvailable(IXWebSocket)
+    FetchContent_GetProperties(IXWebSocket)
+    if(NOT ixwebsocket_POPULATED)
+        FetchContent_Populate(IXWebSocket)
+        # Force IPv4 in IXWebSocket's DNS resolver. Some hosts (e.g.
+        # qso.freedv.org) advertise both A and AAAA records but the AAAA path
+        # may be unreachable; AF_UNSPEC makes IXWebSocket attempt IPv6 first
+        # and the handshake timeout fires before it falls back to IPv4.
+        set(_ix_dns_file "${ixwebsocket_SOURCE_DIR}/ixwebsocket/IXDNSLookup.cpp")
+        file(READ "${_ix_dns_file}" _ix_dns_src)
+        string(REPLACE "hints.ai_family = AF_UNSPEC;"
+                       "hints.ai_family = AF_INET;"
+                       _ix_dns_src "${_ix_dns_src}")
+        file(WRITE "${_ix_dns_file}" "${_ix_dns_src}")
+        add_subdirectory("${ixwebsocket_SOURCE_DIR}" "${ixwebsocket_BINARY_DIR}")
+    endif()
 endif()
 
 if(BUILD_GUI)

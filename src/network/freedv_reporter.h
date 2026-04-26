@@ -210,6 +210,11 @@ private:
     // so that bulk_update can issue a single notification at the end.
     bool suppressUpdateCb_ = false;
 
+    // SIDs removed during a bulk_update batch. Drained at the end of the
+    // batch so each removal is reported via stationRemoveCb_. Only touched
+    // from the Socket.IO callback thread.
+    std::vector<std::string> bulkRemovedSids_;
+
     // ── Socket.IO transport ────────────────────────────────────────────────
     SocketIO sio_;
 

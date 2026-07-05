@@ -490,9 +490,11 @@ void FreeDVReporter::onRxReport(const std::string& data)
             it->second.callsign = rxrCall;
         if (it->second.grid_square.empty() && !rxrGrid.empty())
             it->second.grid_square = rxrGrid;
-        // Empty callsign is the server's "clear RX" signal (sent after a
-        // freq_change). Reset all RX fields so the UI doesn't show stale SNR.
-        if (rxCall.empty()) {
+        // The server's "clear RX" signal (sent after a freq_change) has both
+        // callsign and mode empty. A station can also report a real SNR
+        // before it has decoded a callsign — that report still carries a
+        // mode, so it's kept and shown rather than treated as a clear.
+        if (rxCall.empty() && rxMode.empty()) {
             it->second.rx_callsign    = "";
             it->second.rx_mode        = "";
             it->second.rx_snr         = 0.0;

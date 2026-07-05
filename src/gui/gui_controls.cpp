@@ -255,7 +255,7 @@ void stop_all()
 
 void start_decoder(int in_idx, int out_idx)
 {
-    fprintf(stderr, "start_decoder()\n");
+    //fprintf(stderr, "start_decoder()\n");
     if (in_idx  < 0 || in_idx  >= static_cast<int>(g_input_devices.size()))  return;
     if (out_idx < 0 || out_idx >= static_cast<int>(g_output_devices.size())) return;
 

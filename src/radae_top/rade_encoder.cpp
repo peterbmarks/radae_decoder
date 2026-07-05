@@ -205,7 +205,7 @@ void RadaeEncoder::start()
 
 void RadaeEncoder::stop()
 {
-    fprintf(stderr, "RadaeEncoder::stop()\n");
+    //fprintf(stderr, "RadaeEncoder::stop()\n");
     if (!running_) return;
     running_ = false;
 

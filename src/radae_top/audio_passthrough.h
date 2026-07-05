@@ -33,7 +33,7 @@ public:
     bool is_running() const { return running_.load(std::memory_order_relaxed); }
 
     /* ── UI status queries (thread-safe) ────────────────────────────────── */
-    static constexpr int FFT_SIZE      = 512;
+    static constexpr int FFT_SIZE      = 1024;
     static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;
 
     float get_input_level() const { return input_level_.load(std::memory_order_relaxed); }

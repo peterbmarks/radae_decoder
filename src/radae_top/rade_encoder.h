@@ -59,8 +59,8 @@ public:
     void set_recorder(WavRecorder* rec);
 
     /* spectrum of TX output (thread-safe via mutex) ------------------------- */
-    static constexpr int FFT_SIZE      = 512;
-    static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 256
+    static constexpr int FFT_SIZE      = 1024;
+    static constexpr int SPECTRUM_BINS = FFT_SIZE / 2;   // 512
 
     void  get_spectrum(float* out, int n) const;
     float spectrum_sample_rate() const { return 8000.f; }

@@ -74,11 +74,12 @@ static gboolean on_draw(GtkWidget* widget, cairo_t* cr, gpointer /*data*/)
     }
 
     /* ── frequency grid lines ────────────────────────────────────── */
-    float nyquist = st->sample_rate * 0.5f;
-    constexpr float freq_ticks[] = { 0, 1000, 2000, 3000, 4000 };
+    float nyquist  = st->sample_rate * 0.5f;
+    float disp_max = std::min(nyquist, 3000.f);   // only show 0-3000 Hz
+    constexpr float freq_ticks[] = { 0, 1000, 2000, 3000 };
     for (float fhz : freq_ticks) {
-        if (fhz > nyquist) break;
-        double xfrac = static_cast<double>(fhz) / nyquist;
+        if (fhz > disp_max) break;
+        double xfrac = static_cast<double>(fhz) / disp_max;
         double x = ml + xfrac * pw;
 
         /* grid line */
@@ -105,9 +106,16 @@ static gboolean on_draw(GtkWidget* widget, cairo_t* cr, gpointer /*data*/)
     int nb = static_cast<int>(st->bins.size());
     if (nb < 2) return FALSE;
 
+    /* bins span 0-nyquist evenly; only draw the ones within disp_max,
+       stretched to fill the full plot width */
+    int nb_visible = std::min(nb, static_cast<int>(
+        std::ceil(disp_max / nyquist * (nb - 1))) + 1);
+    if (nb_visible < 2) return FALSE;
+
     /* build the polygon path along the top of the spectrum */
     auto bin_x = [&](int i) -> double {
-        return ml + (static_cast<double>(i) / (nb - 1)) * pw;
+        double fhz = static_cast<double>(i) / (nb - 1) * nyquist;
+        return ml + (fhz / disp_max) * pw;
     };
     auto db_y = [&](float db) -> double {
         float clamped = std::max(DB_MIN, std::min(DB_MAX, db));
@@ -117,7 +125,7 @@ static gboolean on_draw(GtkWidget* widget, cairo_t* cr, gpointer /*data*/)
 
     /* filled area: start at bottom-left, trace spectrum, close at bottom-right */
     cairo_move_to(cr, ml, mt + ph);
-    for (int i = 0; i < nb; i++)
+    for (int i = 0; i < nb_visible; i++)
         cairo_line_to(cr, bin_x(i), db_y(st->bins[static_cast<size_t>(i)]));
     cairo_line_to(cr, ml + pw, mt + ph);
     cairo_close_path(cr);
@@ -138,7 +146,7 @@ static gboolean on_draw(GtkWidget* widget, cairo_t* cr, gpointer /*data*/)
     /* re-trace just the spectrum line (not the bottom) for the stroke */
     cairo_new_path(cr);
     cairo_move_to(cr, bin_x(0), db_y(st->bins[0]));
-    for (int i = 1; i < nb; i++)
+    for (int i = 1; i < nb_visible; i++)
         cairo_line_to(cr, bin_x(i), db_y(st->bins[static_cast<size_t>(i)]));
     cairo_stroke(cr);
 

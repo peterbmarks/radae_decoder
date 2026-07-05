@@ -86,10 +86,19 @@ static gboolean on_draw(GtkWidget* widget, cairo_t* cr, gpointer /*data*/)
     cairo_set_source_rgb(cr, 0.11, 0.11, 0.14);
     cairo_paint(cr);
 
-    /* scale the N_BINS x N_ROWS pixel buffer to fill the plot area */
+    /* columns span 0-nyquist evenly; only show 0-3000 Hz, stretched to
+       fill the full plot width (matches spectrum_widget's frequency axis) */
+    float nyquist  = st->sample_rate * 0.5f;
+    float disp_max = std::min(nyquist, 3000.f);
+    double visible_bins = static_cast<double>(N_BINS) * (disp_max / nyquist);
+
+    /* scale the visible portion of the N_BINS x N_ROWS pixel buffer to
+       fill the plot area; clip so the rest doesn't spill past the margin */
     cairo_save(cr);
+    cairo_rectangle(cr, ml, mt, pw, ph);
+    cairo_clip(cr);
     cairo_translate(cr, ml, mt);
-    cairo_scale(cr, pw / N_BINS, ph / N_ROWS);
+    cairo_scale(cr, pw / visible_bins, ph / N_ROWS);
     cairo_set_source_surface(cr, st->surface, 0, 0);
     cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_NEAREST);
     cairo_paint(cr);

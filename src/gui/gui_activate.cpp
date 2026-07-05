@@ -432,7 +432,6 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     g_spectrum = spectrum_widget_new();
     gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_spectrum, TRUE, TRUE, 0);
-    gtk_widget_set_no_show_all(g_spectrum, TRUE); /* hidden for now; remove this line to restore */
 
     g_waterfall = waterfall_widget_new();
     gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_waterfall, TRUE, TRUE, 0);

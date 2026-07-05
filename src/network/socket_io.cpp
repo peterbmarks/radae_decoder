@@ -159,13 +159,13 @@ void SocketIO::emit(const std::string& event, const std::string& dataJson)
 
 void SocketIO::sendRaw(const std::string& packet)
 {
-    std::cerr << "sendRaw sending: " << packet << '\n';
+    //std::cerr << "sendRaw sending: " << packet << '\n';
     ws_->send(packet);
 }
 
 void SocketIO::onRawMessage(const std::string& msg)
 {
-    std::cerr << "socketIO::onRawMessage received: " << msg << '\n';
+    //std::cerr << "socketIO::onRawMessage received: " << msg << '\n';
     if (msg.empty()) return;
 
     switch (msg[0]) {
@@ -180,7 +180,7 @@ void SocketIO::onRawMessage(const std::string& msg)
                 connectPkt += authJson_;
                 //connectPkt += '}';
             }
-            std::cerr << "got connect packet, sending reply: " << connectPkt << '\n';
+            //std::cerr << "got connect packet, sending reply: " << connectPkt << '\n';
             sendRaw(connectPkt);
         }
         break;
@@ -211,21 +211,21 @@ void SocketIO::onRawMessage(const std::string& msg)
 
         case '0':
             // Socket.IO CONNECT ACK – we are now fully connected.
-            std::cerr << "got Socket.IO connect ACK, we are fully connected." << '\n';
+            //std::cerr << "got Socket.IO connect ACK, we are fully connected." << '\n';
             sioConnected_.store(true);
             if (connectCb_) connectCb_();
             break;
 
         case '1':
             // Socket.IO DISCONNECT.
-            std::cerr << "got Socket.IO disconnect" << '\n';
+            //std::cerr << "got Socket.IO disconnect" << '\n';
             sioConnected_.store(false);
             if (disconnectCb_) disconnectCb_();
             break;
 
         case '2': {
             // Socket.IO EVENT – parse and dispatch.
-            std::cerr << "got Socket.IO EVENT" << '\n';
+            //std::cerr << "got Socket.IO EVENT" << '\n';
             std::string eventName, eventData;
             if (sio_parse_event(payload, eventName, eventData))
                 dispatchEvent(eventName, eventData);

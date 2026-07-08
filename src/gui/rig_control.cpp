@@ -1155,6 +1155,23 @@ void rig_control_set_ptt(bool on)
     }
 }
 
+bool rig_control_set_freq(uint64_t hz)
+{
+    std::lock_guard<std::mutex> lk(g_rig_mutex);
+    if (!g_rig || !g_connected) return false;
+    if (rig_set_freq(g_rig, RIG_VFO_CURR, static_cast<freq_t>(hz)) != RIG_OK)
+        return false;
+
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "%.6f MHz", static_cast<double>(hz) / 1e6);
+    {
+        std::lock_guard<std::mutex> lk2(g_cache_mutex);
+        g_cached_freq = buf;
+    }
+    g_idle_add(update_rig_entries, nullptr);
+    return true;
+}
+
 void rig_control_cleanup()
 {
     /* Stop the background thread first so it doesn't race with us. */

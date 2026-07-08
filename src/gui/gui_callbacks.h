@@ -35,6 +35,10 @@ void on_settings(GtkMenuItem* item, gpointer data);
 void on_rig_control(GtkMenuItem* item, gpointer data);
 void on_reporter(GtkMenuItem* item, gpointer data);
 
+/* Frequency menu: builds a submenu of preset frequencies; selecting one
+   tunes the connected rig. */
+GtkWidget* build_frequency_menu();
+
 /* Reporter message */
 void on_send_message(GtkButton* btn, gpointer data);
 

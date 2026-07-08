@@ -9,6 +9,7 @@
 
 #include <algorithm>   // std::clamp
 #include <chrono>
+#include <cmath>       // std::llround
 #include <cstdio>
 
 /* ── timer callback: update meters + status at ~30 fps ─────────────────── */
@@ -504,6 +505,44 @@ void on_reporter(GtkMenuItem* /*item*/, gpointer /*data*/)
     if (!g_reporter)
         reporter_restart();
     gtk_widget_show_all(g_reporter_win);
+}
+
+/* Frequency menu item chosen: tune the rig to the frequency stashed in
+   `data` (Hz, packed via GUINT_TO_POINTER by build_frequency_menu()). */
+static void on_frequency_selected(GtkMenuItem* /*item*/, gpointer data)
+{
+    const uint64_t hz = static_cast<uint64_t>(GPOINTER_TO_UINT(data));
+    char buf[64];
+    if (!rig_control_set_freq(hz)) {
+        set_status("Rig not connected \xe2\x80\x94 cannot tune.");
+        return;
+    }
+    std::snprintf(buf, sizeof buf, "Tuned to %.4f MHz",
+                 static_cast<double>(hz) / 1e6);
+    set_status(buf);
+}
+
+GtkWidget* build_frequency_menu()
+{
+    static constexpr double kFrequenciesMHz[] = {
+        1.8700, 3.6250, 3.6430, 3.6970, 3.8030,
+        5.4035, 5.3665, 5.3685,
+        7.0450, 7.0830, 7.1770, 7.1970, 
+        14.2360, 14.2400, 18.1180, 21.3130, 
+        24.9330, 28.3300, 28.7200, 
+    };
+
+    GtkWidget* menu = gtk_menu_new();
+    for (double mhz : kFrequenciesMHz) {
+        char label[16];
+        std::snprintf(label, sizeof label, "%.4f", mhz);
+        GtkWidget* mi = gtk_menu_item_new_with_label(label);
+        const auto hz = static_cast<guint>(std::llround(mhz * 1e6));
+        g_signal_connect(mi, "activate", G_CALLBACK(on_frequency_selected),
+                         GUINT_TO_POINTER(hz));
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), mi);
+    }
+    return menu;
 }
 
 /* Reporter callsign filter changed */

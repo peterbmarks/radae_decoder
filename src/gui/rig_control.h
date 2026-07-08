@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gtk/gtk.h>
+#include <cstdint>
 #include <string>
 
 /* Load all hamlib backends and enumerate serial ports.
@@ -49,6 +50,10 @@ bool        rig_get_ptt_on();
 
 /* Key or un-key the rig PTT.  No-op when no rig is connected. */
 void rig_control_set_ptt(bool on);
+
+/* Tune the rig's current VFO to the given frequency in Hz.
+   Returns false (no-op) when no rig is connected. */
+bool rig_control_set_freq(uint64_t hz);
 
 /* Release PTT, wait for the serial port to flush, then close the rig.
    Call once at application exit in place of rig_control_set_ptt(false). */

@@ -118,6 +118,10 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_menu_item_set_submenu(GTK_MENU_ITEM(edit_mi), edit_menu);
     gtk_menu_shell_append(GTK_MENU_SHELL(menubar), edit_mi);
 
+    GtkWidget* freq_mi = gtk_menu_item_new_with_label("Frequency");
+    gtk_menu_item_set_submenu(GTK_MENU_ITEM(freq_mi), build_frequency_menu());
+    gtk_menu_shell_append(GTK_MENU_SHELL(menubar), freq_mi);
+
     gtk_box_pack_start(GTK_BOX(outer_vbox), menubar, FALSE, FALSE, 0);
 
     /* ── rig control dialog (created hidden, shown from Edit > Rig Control) ── */

@@ -569,3 +569,11 @@ void on_send_message(GtkButton* /*btn*/, gpointer /*data*/)
     const char* text = gtk_entry_get_text(GTK_ENTRY(g_message_entry));
     g_reporter->updateMessage(text ? text : "");
 }
+
+/* Message entry changed: save config so the text survives an app restart.
+   Deliberately does not touch the reporter connection — the message is only
+   published to FreeDV Reporter when the user clicks Send. */
+void on_message_changed(GtkEditable* /*e*/, gpointer /*data*/)
+{
+    save_config();
+}

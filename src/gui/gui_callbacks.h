@@ -41,6 +41,7 @@ GtkWidget* build_frequency_menu();
 
 /* Reporter message */
 void on_send_message(GtkButton* btn, gpointer data);
+void on_message_changed(GtkEditable* e, gpointer data);
 
 /* Reporter filter */
 void on_reporter_filter_changed(GtkEditable* e, gpointer data);

@@ -208,6 +208,7 @@ void activate(GtkApplication* app, gpointer /*data*/)
         gtk_box_pack_start(GTK_BOX(msg_hbox), gtk_label_new("Message:"), FALSE, FALSE, 0);
         g_message_entry = gtk_entry_new();
         gtk_widget_set_tooltip_text(g_message_entry, "Free-text status message sent to FreeDV Reporter");
+        g_signal_connect(g_message_entry, "changed", G_CALLBACK(on_message_changed), nullptr);
         gtk_box_pack_start(GTK_BOX(msg_hbox), g_message_entry, TRUE, TRUE, 0);
         GtkWidget* send_btn = gtk_button_new_with_label("Send");
         g_signal_connect(send_btn, "clicked", G_CALLBACK(on_send_message), nullptr);

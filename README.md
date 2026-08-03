@@ -133,6 +133,11 @@ gtk+3 hamlib portaudio
 cd radae_decoder
 ```
 
+Fetch the RADE codec library submodule ([extern/rade_c](extern/rade_c)):
+```bash
+git submodule update --init --recursive
+```
+
 Prepare the make file:
 ```
 mkdir -p build
@@ -357,7 +362,7 @@ SYNC SNR: 12.3 dB  Freq: +1.5 Hz  In: 0.45  Out: 0.62
 | **audio_input** | Device enumeration wrapper used by the UI dropdowns |
 | **meter_widget** | Custom `GtkDrawingArea` widget; redraws at ~30 fps using Cairo; converts linear RMS to logarithmic dB; green-to-red gradient fill; peak-hold with decay |
 | **main** | GTK application shell; connects signals; manages device combo boxes and TX level slider; starts/stops decoder/encoder; updates meters and status via GLib timer |
-| **radae_nopy (librade)** | RADAE codec C library: OFDM mod/demod, pilot acquisition, neural encoder/decoder (GRU+Conv), bandpass filter. Neural network weights compiled directly into the binary (~47 MB). |
+| **rade_c (librade)** | RADAE codec C library ([extern/rade_c](extern/rade_c) git submodule, from [freedv/rade_c](https://github.com/freedv/rade_c)): OFDM mod/demod, pilot acquisition, neural encoder/decoder (GRU+Conv), bandpass filter. Neural network weights compiled directly into the binary (~47 MB). |
 
 ### Decode pipeline (RX)
 

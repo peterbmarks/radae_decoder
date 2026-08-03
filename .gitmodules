@@ -1,0 +1,3 @@
+[submodule "extern/rade_c"]
+	path = extern/rade_c
+	url = https://github.com/freedv/rade_c.git

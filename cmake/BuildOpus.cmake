@@ -22,7 +22,7 @@ ExternalProject_Add(build_opus_x86
     SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src-x86
     STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-x86
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff || true"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=x86_64-apple-darwin --target=x86_64-apple-darwin CFLAGS=-arch\ x86_64\ -O2\ -mmacosx-version-min=10.11
     BUILD_COMMAND make
     INSTALL_COMMAND ""
@@ -34,7 +34,7 @@ ExternalProject_Add(build_opus_arm
     SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src-arm
     STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-arm
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff || true"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=aarch64-apple-darwin --target=aarch64-apple-darwin CFLAGS=-arch\ arm64\ -O2\ -mmacosx-version-min=10.11
     BUILD_COMMAND make
     INSTALL_COMMAND ""
@@ -73,7 +73,7 @@ ExternalProject_Add(build_opus
     SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src
     STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_CURRENT_SOURCE_DIR}/src/opus-nnet.h.diff || true"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND}
     BUILD_COMMAND make
     INSTALL_COMMAND ""

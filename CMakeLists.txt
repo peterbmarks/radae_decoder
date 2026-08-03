@@ -131,29 +131,39 @@ endif()
 option(AVX "Enable AVX CPU optimizations." ON)
 include(cmake/BuildOpus.cmake)
 
-# ── RADE library (fetched via ExternalProject) ───────────────────────────────
-include(cmake/FetchRadaeNopy.cmake)
+# ── RADE library (extern/rade_c git submodule) ────────────────────────────────
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/extern/rade_c/src/rade_api.c")
+    message(FATAL_ERROR "extern/rade_c is empty. Run: git submodule update --init --recursive")
+endif()
+set(RADE_C_SRC ${CMAKE_SOURCE_DIR}/extern/rade_c/src CACHE INTERNAL "rade_c source directory")
 
-set(RADE_NOPY_SOURCES
-    ${RADE_NOPY_SRC}/rade_api_nopy.c
-    ${RADE_NOPY_SRC}/rade_enc.c
-    ${RADE_NOPY_SRC}/rade_dec.c
-    ${RADE_NOPY_SRC}/rade_enc_data.c
-    ${RADE_NOPY_SRC}/rade_dec_data.c
-    ${RADE_NOPY_SRC}/rade_dsp.c
-    ${RADE_NOPY_SRC}/rade_ofdm.c
-    ${RADE_NOPY_SRC}/rade_bpf.c
-    ${RADE_NOPY_SRC}/rade_acq.c
-    ${RADE_NOPY_SRC}/rade_tx.c
-    ${RADE_NOPY_SRC}/rade_rx.c
+set(RADE_C_SOURCES
+    ${RADE_C_SRC}/rade_api.c
+    ${RADE_C_SRC}/rade_enc.c
+    ${RADE_C_SRC}/rade_dec.c
+    ${RADE_C_SRC}/rade_enc_data.c
+    ${RADE_C_SRC}/rade_dec_data.c
+    ${RADE_C_SRC}/rade_dsp.c
+    ${RADE_C_SRC}/rade_ofdm.c
+    ${RADE_C_SRC}/rade_bpf.c
+    ${RADE_C_SRC}/rade_acq.c
+    ${RADE_C_SRC}/rade_tx.c
+    ${RADE_C_SRC}/rade_rx.c
+    # V2 sources: rade_api.c unconditionally calls into these at rade_open()
+    ${RADE_C_SRC}/rade_enc_v2.c
+    ${RADE_C_SRC}/rade_dec_v2.c
+    ${RADE_C_SRC}/rade_sync.c
+    ${RADE_C_SRC}/rade_enc_v2_data.c
+    ${RADE_C_SRC}/rade_dec_v2_data.c
+    ${RADE_C_SRC}/rade_sync_data.c
+    ${RADE_C_SRC}/rade_v2_ofdm.c
+    ${RADE_C_SRC}/rade_tx_v2.c
+    ${RADE_C_SRC}/rade_rx_v2.c
 )
-# Files don't exist at configure time (ExternalProject downloads at build time).
-set_source_files_properties(${RADE_NOPY_SOURCES} PROPERTIES GENERATED TRUE)
-add_library(rade STATIC ${RADE_NOPY_SOURCES})
-add_dependencies(rade radae_nopy_src)
+add_library(rade STATIC ${RADE_C_SOURCES})
 target_link_libraries(rade opus m)
-target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1 -DRADE_PYTHON_FREE=1)
-target_include_directories(rade PUBLIC ${RADE_NOPY_SRC})
+target_compile_definitions(rade PRIVATE -DIS_BUILDING_RADE_API=1)
+target_include_directories(rade PUBLIC ${RADE_C_SRC})
 
 enable_testing()
 add_subdirectory(tests)
@@ -161,7 +171,7 @@ add_subdirectory(tests)
 set_target_properties(rade PROPERTIES
     VERSION 0.1
     SOVERSION 0.1
-    PUBLIC_HEADER "${RADE_NOPY_SRC}/rade_api.h"
+    PUBLIC_HEADER "${RADE_C_SRC}/rade_api.h"
 )
 
 # ── RADE utilities ───────────────────────────────────────────────────────────

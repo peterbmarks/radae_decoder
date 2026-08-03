@@ -43,6 +43,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "rade_api.h"
 #include "../src/radae_top/rade_decoder.h"
 #include "../src/radae_top/rade_encoder.h"
 #include "../src/audio/audio_input.h"

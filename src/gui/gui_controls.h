@@ -26,3 +26,9 @@ void start_decoder(int in_idx, int out_idx);
 void start_encoder(int mic_idx, int radio_idx);
 void start_decoder_file(const std::string& wav_path, int out_idx);
 void start_passthrough(int in_idx, int out_idx);
+
+/* Settings dialog: standalone mic input level meter.
+   start_mic_monitor() no-ops unless the Settings dialog is visible and no
+   encoder is already using the mic device; safe to call any time. */
+void start_mic_monitor();
+void stop_mic_monitor();

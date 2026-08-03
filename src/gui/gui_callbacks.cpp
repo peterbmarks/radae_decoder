@@ -186,11 +186,14 @@ void on_output_combo_changed(GtkComboBox* combo, gpointer /*data*/)
         start_decoder(in_idx, out_idx);
 }
 
-/* selecting a transmit device: just save config */
-void on_tx_combo_changed(GtkComboBox* /*combo*/, gpointer /*data*/)
+/* selecting a transmit device: save config; restart the mic meter if the
+   mic input device itself changed */
+void on_tx_combo_changed(GtkComboBox* combo, gpointer /*data*/)
 {
     if (g_updating_combos) return;
     save_config();
+    if (GTK_WIDGET(combo) == g_tx_input_combo)
+        start_mic_monitor();
 }
 
 /* ── station settings ───────────────────────────────────────────────────── */
@@ -424,6 +427,8 @@ void on_window_destroy(GtkWidget* /*w*/, gpointer /*data*/)
 {
     save_config();
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
+    stop_mic_monitor();
+    delete g_mic_monitor; g_mic_monitor = nullptr;
     /* detach recorder before stopping threads */
     if (g_decoder) g_decoder->set_recorder(nullptr);
     if (g_encoder) g_encoder->set_recorder(nullptr);

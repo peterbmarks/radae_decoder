@@ -31,6 +31,9 @@ extern std::vector<AudioDevice> g_tx_input_devices;
 extern std::vector<AudioDevice> g_tx_output_devices;
 extern GtkWidget*               g_tx_input_combo;  // transmit mic input selector
 extern GtkWidget*               g_tx_output_combo; // transmit radio output selector
+extern GtkWidget*               g_mic_meter;       // Settings dialog: mic input level meter
+extern AudioInput*               g_mic_monitor;     // standalone capture used to drive g_mic_meter
+extern guint                    g_mic_meter_timer; // g_mic_meter update timer
 extern GtkWidget*               g_btn;             // start / stop
 extern GtkWidget*               g_record_btn;      // record / stop-record
 extern GtkWidget*               g_analog_btn;      // analog passthrough toggle

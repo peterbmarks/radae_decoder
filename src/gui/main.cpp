@@ -20,6 +20,9 @@ std::vector<AudioDevice> g_tx_input_devices;
 std::vector<AudioDevice> g_tx_output_devices;
 GtkWidget*               g_tx_input_combo     = nullptr;   // transmit mic input selector
 GtkWidget*               g_tx_output_combo    = nullptr;   // transmit radio output selector
+GtkWidget*               g_mic_meter          = nullptr;   // Settings dialog: mic input level meter
+AudioInput*              g_mic_monitor        = nullptr;   // standalone capture used to drive g_mic_meter
+guint                    g_mic_meter_timer    = 0;         // g_mic_meter update timer
 GtkWidget*               g_btn                = nullptr;   // start / stop
 GtkWidget*               g_record_btn         = nullptr;   // record / stop-record
 GtkWidget*               g_analog_btn         = nullptr;   // analog passthrough toggle

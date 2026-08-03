@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -367,4 +368,48 @@ void start_passthrough(int in_idx, int out_idx)
     g_passthrough->start();
     set_status("Analog passthrough active.");
     g_timer = g_timeout_add(33, on_meter_tick, nullptr);   // ~30 fps
+}
+
+/* ── Settings dialog mic input meter ───────────────────────────────────── */
+
+/* linear RMS (0..1) → 0..1 bar fraction, using the same -60..0 dB range
+   as the main window's meter_widget so levels read consistently. */
+static float level_to_bar_frac(float level)
+{
+    if (level < 1e-6f) return 0.f;
+    float db = 20.f * std::log10(level);
+    db = std::max(-60.f, std::min(0.f, db));
+    return (db + 60.f) / 60.f;
+}
+
+static gboolean on_mic_meter_tick(gpointer /*data*/)
+{
+    if (g_mic_monitor && g_mic_meter)
+        gtk_level_bar_set_value(GTK_LEVEL_BAR(g_mic_meter),
+                                 level_to_bar_frac(g_mic_monitor->get_level_left()));
+    return G_SOURCE_CONTINUE;
+}
+
+void start_mic_monitor()
+{
+    stop_mic_monitor();
+
+    if (!g_settings_dlg || !gtk_widget_get_visible(g_settings_dlg)) return;
+    if (g_encoder && g_encoder->is_running()) return;   // device already in use for TX
+
+    int idx = g_tx_input_combo ? gtk_combo_box_get_active(GTK_COMBO_BOX(g_tx_input_combo)) : -1;
+    if (idx < 0 || idx >= static_cast<int>(g_tx_input_devices.size())) return;
+
+    if (!g_mic_monitor) g_mic_monitor = new AudioInput();
+    if (g_mic_monitor->open(g_tx_input_devices[idx].hw_id))
+        g_mic_monitor->start();
+
+    g_mic_meter_timer = g_timeout_add(33, on_mic_meter_tick, nullptr);
+}
+
+void stop_mic_monitor()
+{
+    if (g_mic_meter_timer) { g_source_remove(g_mic_meter_timer); g_mic_meter_timer = 0; }
+    if (g_mic_monitor)     { g_mic_monitor->stop(); g_mic_monitor->close(); }
+    if (g_mic_meter)       gtk_level_bar_set_value(GTK_LEVEL_BAR(g_mic_meter), 0.0);
 }

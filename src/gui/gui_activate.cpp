@@ -227,6 +227,12 @@ void activate(GtkApplication* app, gpointer /*data*/)
                      G_CALLBACK(gtk_widget_hide_on_delete), nullptr);
     g_signal_connect_swapped(g_settings_dlg, "response",
                              G_CALLBACK(gtk_widget_hide), g_settings_dlg);
+    g_signal_connect(g_settings_dlg, "show", G_CALLBACK(+[](GtkWidget*, gpointer) {
+                         start_mic_monitor();
+                     }), nullptr);
+    g_signal_connect(g_settings_dlg, "hide", G_CALLBACK(+[](GtkWidget*, gpointer) {
+                         stop_mic_monitor();
+                     }), nullptr);
 
     GtkWidget* scontent = gtk_dialog_get_content_area(GTK_DIALOG(g_settings_dlg));
     gtk_container_set_border_width(GTK_CONTAINER(scontent), 12);
@@ -321,6 +327,21 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_box_pack_start(GTK_BOX(tx_input_hbox), tx_in_spacer, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(scontent), tx_input_hbox, FALSE, FALSE, 0);
+
+    /* ── mic input level meter ────────────────────────────────────── */
+    GtkWidget* mic_meter_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* mic_meter_spacer = gtk_label_new("");
+    gtk_widget_set_size_request(mic_meter_spacer, 50, -1);
+    gtk_box_pack_start(GTK_BOX(mic_meter_hbox), mic_meter_spacer, FALSE, FALSE, 0);
+
+    g_mic_meter = gtk_level_bar_new_for_interval(0.0, 1.0);
+    gtk_level_bar_set_mode(GTK_LEVEL_BAR(g_mic_meter), GTK_LEVEL_BAR_MODE_CONTINUOUS);
+    gtk_widget_set_valign(g_mic_meter, GTK_ALIGN_CENTER);
+    gtk_widget_set_tooltip_text(g_mic_meter, "Microphone input level");
+    gtk_box_pack_start(GTK_BOX(mic_meter_hbox), g_mic_meter, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), mic_meter_hbox, FALSE, FALSE, 0);
 
     /* ── output to speaker selector row ───────────────────────────── */
     GtkWidget* output_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);

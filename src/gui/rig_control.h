@@ -48,8 +48,15 @@ std::string rig_get_current_freq();   /* e.g. "14.225.000 MHz", or "" */
 std::string rig_get_current_mode();   /* e.g. "USB", or ""            */
 bool        rig_get_ptt_on();
 
-/* Key or un-key the rig PTT.  No-op when no rig is connected. */
+/* Key or un-key the rig PTT.  No-op when no rig is connected.
+   Blocks the calling thread on serial I/O — prefer rig_control_set_ptt_async()
+   from the GTK main thread (e.g. UI button handlers). */
 void rig_control_set_ptt(bool on);
+
+/* Same as rig_control_set_ptt(), but queues the request onto a single
+   background worker so the caller never blocks on rig serial I/O. Requests
+   are applied strictly in the order they were issued. */
+void rig_control_set_ptt_async(bool on);
 
 /* Tune the rig's current VFO to the given frequency in Hz.
    Returns false (no-op) when no rig is connected. */

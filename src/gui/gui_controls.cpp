@@ -259,7 +259,7 @@ void stop_all()
     if (g_spectrum)  spectrum_widget_update(g_spectrum, nullptr, 0, 8000.f);
     if (g_waterfall) waterfall_widget_update(g_waterfall, nullptr, 0, 8000.f);
     set_btn_state(false);
-    rig_control_set_ptt(false);       /* release PTT if rig is connected */
+    rig_control_set_ptt_async(false); /* release PTT if rig is connected */
     update_rig_status_label();        /* refresh immediately; timer is now stopped */
 
     /* Tell the reporter we stopped transmitting. */
@@ -315,7 +315,7 @@ void start_encoder(int mic_idx, int radio_idx)
         g_encoder->set_callsign(cs ? cs : "");
     }
     g_encoder->start();
-    rig_control_set_ptt(true);        /* key the rig if connected */
+    rig_control_set_ptt_async(true);  /* key the rig if connected */
     if (g_reporter)
         g_reporter->transmit(kReporterMode, true);
     if (g_recording && g_recorder)

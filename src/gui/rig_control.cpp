@@ -7,9 +7,11 @@
 #include <atomic>
 #include <cctype>
 #include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <glob.h>
 #include <mutex>
 #include <netdb.h>
@@ -87,8 +89,8 @@ static GtkWidget* g_test_tx_btn    = nullptr;
 
 static RIG*  g_rig       = nullptr;
 static bool  g_connected = false;
-static bool  g_ptt_on    = false;
-static bool  g_ptt_supported = true;
+static std::atomic<bool> g_ptt_on{false};         /* written from the GTK thread and the PTT worker thread */
+static std::atomic<bool> g_ptt_supported{true};   /* written from the GTK thread and the PTT worker thread */
 static bool  g_conn_params_valid = false;
 static rig_model_t g_conn_model_id = RIG_MODEL_NONE;
 static bool  g_conn_use_tcp = false;
@@ -105,6 +107,57 @@ static std::atomic<bool>      g_poll_running{false};
 
 static std::string g_cached_freq;   /* last polled frequency string, e.g. "14.225.000 MHz" */
 static std::string g_cached_mode;   /* last polled mode string, e.g. "USB" */
+
+/* ── async PTT command queue ─────────────────────────────────────────────
+   rig_control_set_ptt() blocks on serial I/O (and can additionally block
+   waiting for g_rig_mutex if the poll thread is mid-cycle).  Calling it
+   directly from the GTK main thread — e.g. when arming TX — stalls the
+   whole UI, including timers like the mic level meter, for as long as the
+   rig takes to respond.  This queue serializes PTT requests onto a single
+   background worker so callers never block, while still applying requests
+   strictly in the order they were issued. */
+static std::mutex              g_ptt_queue_mutex;
+static std::condition_variable g_ptt_queue_cv;
+static std::deque<bool>        g_ptt_queue;
+static std::thread             g_ptt_worker;
+static std::atomic<bool>       g_ptt_worker_running{false};
+
+static void ptt_worker_func()
+{
+    for (;;) {
+        bool on;
+        {
+            std::unique_lock<std::mutex> lk(g_ptt_queue_mutex);
+            g_ptt_queue_cv.wait(lk, [] {
+                return !g_ptt_queue.empty() || !g_ptt_worker_running.load();
+            });
+            if (g_ptt_queue.empty())
+                return;   /* stop requested and nothing left to apply */
+            on = g_ptt_queue.front();
+            g_ptt_queue.pop_front();
+        }
+        rig_control_set_ptt(on);
+    }
+}
+
+static void ptt_worker_stop()
+{
+    if (!g_ptt_worker_running.exchange(false)) return;
+    g_ptt_queue_cv.notify_one();
+    if (g_ptt_worker.joinable())
+        g_ptt_worker.join();
+}
+
+void rig_control_set_ptt_async(bool on)
+{
+    {
+        std::lock_guard<std::mutex> lk(g_ptt_queue_mutex);
+        if (!g_ptt_worker_running.exchange(true))
+            g_ptt_worker = std::thread(ptt_worker_func);
+        g_ptt_queue.push_back(on);
+    }
+    g_ptt_queue_cv.notify_one();
+}
 
 static void (*g_save_cb)() = nullptr;
 
@@ -1139,6 +1192,9 @@ std::string rig_get_current_freq()  { std::lock_guard<std::mutex> lk(g_cache_mut
 std::string rig_get_current_mode()  { std::lock_guard<std::mutex> lk(g_cache_mutex); return g_cached_mode; }
 bool        rig_get_ptt_on()        { return g_ptt_on; }
 
+/* May be called from the GTK main thread or the PTT worker thread (via
+   rig_control_set_ptt_async), so GTK widget access is marshalled through
+   g_idle_add rather than touched directly. */
 void rig_control_set_ptt(bool on)
 {
     std::lock_guard<std::mutex> lk(g_rig_mutex);
@@ -1148,7 +1204,10 @@ void rig_control_set_ptt(bool on)
     if (!set_ptt_with_retry(on, &unsupported, &err)) {
         if (unsupported) {
             g_ptt_supported = false;
-            if (g_test_tx_btn) gtk_widget_set_sensitive(g_test_tx_btn, FALSE);
+            g_idle_add(+[](gpointer) -> gboolean {
+                if (g_test_tx_btn) gtk_widget_set_sensitive(g_test_tx_btn, FALSE);
+                return G_SOURCE_REMOVE;
+            }, nullptr);
         }
         if (on) g_ptt_on = false;
         return;
@@ -1174,6 +1233,10 @@ bool rig_control_set_freq(uint64_t hz)
 
 void rig_control_cleanup()
 {
+    /* Drain any queued PTT requests (e.g. from a just-clicked Start) before
+       we take over below — this also stops the worker thread. */
+    ptt_worker_stop();
+
     /* Stop the background thread first so it doesn't race with us. */
     g_poll_running.store(false);
     if (g_poll_thread.joinable())

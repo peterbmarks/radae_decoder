@@ -48,6 +48,7 @@ GtkWidget*               g_message_entry      = nullptr;   // reporter free-text
 GtkWidget*               g_reporter_win       = nullptr;   // FreeDV Reporter station-list window
 GtkWidget*               g_reporter_view      = nullptr;   // GtkTreeView inside reporter window
 GtkWidget*               g_reporter_filter    = nullptr;   // callsign filter entry
+GtkWidget*               g_reporter_track_freq = nullptr;  // "Track Frequency" checkbox
 GtkWidget*               g_reporter_count_lbl = nullptr;   // "N stations" label
 
 /* ── entry point ────────────────────────────────────────────────────────── */

@@ -25,6 +25,11 @@ gboolean on_meter_tick(gpointer /*data*/)
             g_last_reporter_freq = cur_freq;
             if (cur_freq > 0)
                 g_reporter->freqChange(cur_freq);
+
+            /* Our own frequency moved — re-apply the "Track Frequency" filter. */
+            if (g_reporter_track_freq &&
+                gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(g_reporter_track_freq)))
+                refresh_reporter_list();
         }
     }
 

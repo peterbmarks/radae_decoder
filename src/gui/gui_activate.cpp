@@ -161,6 +161,13 @@ void activate(GtkApplication* app, gpointer /*data*/)
                          G_CALLBACK(on_reporter_filter_changed), nullptr);
         gtk_box_pack_start(GTK_BOX(filter_hbox), g_reporter_filter, TRUE, TRUE, 0);
 
+        g_reporter_track_freq = gtk_check_button_new_with_label("Track Frequency");
+        gtk_widget_set_tooltip_text(g_reporter_track_freq,
+                                    "Show only stations on the same frequency as we are");
+        g_signal_connect(g_reporter_track_freq, "toggled",
+                         G_CALLBACK(on_reporter_filter_changed), nullptr);
+        gtk_box_pack_start(GTK_BOX(filter_hbox), g_reporter_track_freq, FALSE, FALSE, 0);
+
         g_reporter_count_lbl = gtk_label_new("0 stations");
         gtk_label_set_xalign(GTK_LABEL(g_reporter_count_lbl), 1.0);
         gtk_box_pack_end(GTK_BOX(filter_hbox), g_reporter_count_lbl, FALSE, FALSE, 0);

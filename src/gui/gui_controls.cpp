@@ -125,6 +125,13 @@ void refresh_reporter_list()
                            }) != hay.end();
     };
 
+    // "Track Frequency": only show stations on our current frequency.
+    // If our own frequency is unknown (no rig connected), the filter is a
+    // no-op rather than hiding every station.
+    const bool track_freq = g_reporter_track_freq &&
+        gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(g_reporter_track_freq));
+    const uint64_t our_freq = track_freq ? rig_freq_hz() : 0;
+
     // Rebuild the list store from the accumulator (filtered).
     gtk_list_store_clear(store);
     int count = 0;
@@ -133,6 +140,9 @@ void refresh_reporter_list()
         const StationInfo& s = kv.second;
 
         if (!filter.empty() && !ci_contains(s.callsign, filter))
+            continue;
+
+        if (track_freq && our_freq != 0 && s.frequency != our_freq)
             continue;
 
         char freq_buf[32];

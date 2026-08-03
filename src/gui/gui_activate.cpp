@@ -202,6 +202,17 @@ void activate(GtkApplication* app, gpointer /*data*/)
                                        GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
         gtk_container_add(GTK_CONTAINER(sw), g_reporter_view);
         gtk_box_pack_start(GTK_BOX(rep_vbox), sw, TRUE, TRUE, 0);
+
+        /* ── message row ────────────────────────────────────────────── */
+        GtkWidget* msg_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+        gtk_box_pack_start(GTK_BOX(msg_hbox), gtk_label_new("Message:"), FALSE, FALSE, 0);
+        g_message_entry = gtk_entry_new();
+        gtk_widget_set_tooltip_text(g_message_entry, "Free-text status message sent to FreeDV Reporter");
+        gtk_box_pack_start(GTK_BOX(msg_hbox), g_message_entry, TRUE, TRUE, 0);
+        GtkWidget* send_btn = gtk_button_new_with_label("Send");
+        g_signal_connect(send_btn, "clicked", G_CALLBACK(on_send_message), nullptr);
+        gtk_box_pack_start(GTK_BOX(msg_hbox), send_btn, FALSE, FALSE, 0);
+        gtk_box_pack_start(GTK_BOX(rep_vbox), msg_hbox, FALSE, FALSE, 0);
     }
 
     /* ── settings dialog (created hidden, shown from Edit > Settings) ── */
@@ -467,27 +478,19 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     gtk_box_pack_start(GTK_BOX(vbox), meter_spec_hbox, TRUE, TRUE, 0);
 
-    /* ── rig status line ────────────────────────────────────────────── */
+    /* ── rig status + decoder status line ─────────────────────────────── */
+    GtkWidget* status_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+
     g_rig_status_lbl = gtk_label_new("Rig: not connected");
-    gtk_label_set_xalign(GTK_LABEL(g_rig_status_lbl), 0.5);
-    gtk_box_pack_start(GTK_BOX(vbox), g_rig_status_lbl, FALSE, FALSE, 0);
+    gtk_label_set_xalign(GTK_LABEL(g_rig_status_lbl), 0.0);
+    gtk_box_pack_start(GTK_BOX(status_hbox), g_rig_status_lbl, FALSE, FALSE, 0);
 
-    /* ── reporter message row ───────────────────────────────────────── */
-    GtkWidget* msg_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
-    gtk_box_pack_start(GTK_BOX(msg_hbox), gtk_label_new("Message:"), FALSE, FALSE, 0);
-    g_message_entry = gtk_entry_new();
-    gtk_widget_set_tooltip_text(g_message_entry, "Free-text status message sent to FreeDV Reporter");
-    gtk_box_pack_start(GTK_BOX(msg_hbox), g_message_entry, TRUE, TRUE, 0);
-    GtkWidget* send_btn = gtk_button_new_with_label("Send");
-    g_signal_connect(send_btn, "clicked", G_CALLBACK(on_send_message), nullptr);
-    gtk_box_pack_start(GTK_BOX(msg_hbox), send_btn, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(vbox), msg_hbox, FALSE, FALSE, 0);
-
-    /* ── status label ──────────────────────────────────────────────── */
     g_status = gtk_label_new("");
     gtk_widget_set_name(g_status, "status-label");
     gtk_label_set_xalign(GTK_LABEL(g_status), 0.5);
-    gtk_box_pack_start(GTK_BOX(vbox), g_status, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(status_hbox), g_status, TRUE, TRUE, 0);
+
+    gtk_box_pack_start(GTK_BOX(vbox), status_hbox, FALSE, FALSE, 0);
 
     /* ── show everything, then populate the combo ──────────────────── */
     gtk_widget_show_all(window);

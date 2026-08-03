@@ -232,12 +232,12 @@ void activate(GtkApplication* app, gpointer /*data*/)
     gtk_container_set_border_width(GTK_CONTAINER(scontent), 12);
     gtk_box_set_spacing(GTK_BOX(scontent), 8);
 
-    GtkWidget* rx_heading = gtk_label_new(nullptr);
-    gtk_label_set_markup(GTK_LABEL(rx_heading), "<b>Receive</b>");
-    gtk_label_set_xalign(GTK_LABEL(rx_heading), 0.0);
-    gtk_box_pack_start(GTK_BOX(scontent), rx_heading, FALSE, FALSE, 0);
+    GtkWidget* transceiver_heading = gtk_label_new(nullptr);
+    gtk_label_set_markup(GTK_LABEL(transceiver_heading), "<b>Transceiver</b>");
+    gtk_label_set_xalign(GTK_LABEL(transceiver_heading), 0.0);
+    gtk_box_pack_start(GTK_BOX(scontent), transceiver_heading, FALSE, FALSE, 0);
 
-    /* ── input device selector row ────────────────────────────────── */
+    /* ── input from radio selector row ────────────────────────────── */
     GtkWidget* input_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
     GtkWidget* input_label = gtk_label_new("Input from radio:");
@@ -257,59 +257,10 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     gtk_box_pack_start(GTK_BOX(scontent), input_hbox, FALSE, FALSE, 0);
 
-    /* ── output device selector row ────────────────────────────────── */
-    GtkWidget* output_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-
-    GtkWidget* output_label = gtk_label_new("Output to speaker:");
-    gtk_widget_set_size_request(output_label, 50, -1);
-    gtk_label_set_xalign(GTK_LABEL(output_label), 0.0);
-    gtk_box_pack_start(GTK_BOX(output_hbox), output_label, FALSE, FALSE, 0);
-
-    g_output_combo = gtk_combo_box_text_new();
-    gtk_widget_set_tooltip_text(g_output_combo, "Audio output (decoded speech)");
-    g_signal_connect(g_output_combo, "changed", G_CALLBACK(on_output_combo_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(output_hbox), g_output_combo, TRUE, TRUE, 0);
-
-    /* spacer to align with refresh button above */
-    GtkWidget* spacer = gtk_label_new("");
-    gtk_widget_set_size_request(spacer, 28, -1);
-    gtk_box_pack_start(GTK_BOX(output_hbox), spacer, FALSE, FALSE, 0);
-
-    gtk_box_pack_start(GTK_BOX(scontent), output_hbox, FALSE, FALSE, 0);
-
-    /* ── separator between Receive and Transmit sections ──────────── */
-    gtk_box_pack_start(GTK_BOX(scontent),
-                       gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);
-
-    GtkWidget* tx_heading = gtk_label_new(nullptr);
-    gtk_label_set_markup(GTK_LABEL(tx_heading), "<b>Transmit</b>");
-    gtk_label_set_xalign(GTK_LABEL(tx_heading), 0.0);
-    gtk_box_pack_start(GTK_BOX(scontent), tx_heading, FALSE, FALSE, 0);
-
-    /* ── transmit input (microphone) selector row ─────────────────── */
-    GtkWidget* tx_input_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-
-    GtkWidget* tx_input_label = gtk_label_new("Microphone In:");
-    gtk_widget_set_size_request(tx_input_label, 50, -1);
-    gtk_label_set_xalign(GTK_LABEL(tx_input_label), 0.0);
-    gtk_box_pack_start(GTK_BOX(tx_input_hbox), tx_input_label, FALSE, FALSE, 0);
-
-    g_tx_input_combo = gtk_combo_box_text_new();
-    gtk_widget_set_tooltip_text(g_tx_input_combo, "Microphone input for transmit");
-    g_signal_connect(g_tx_input_combo, "changed", G_CALLBACK(on_tx_combo_changed), NULL);
-    gtk_box_pack_start(GTK_BOX(tx_input_hbox), g_tx_input_combo, TRUE, TRUE, 0);
-
-    /* spacer to align with refresh button above */
-    GtkWidget* tx_in_spacer = gtk_label_new("");
-    gtk_widget_set_size_request(tx_in_spacer, 28, -1);
-    gtk_box_pack_start(GTK_BOX(tx_input_hbox), tx_in_spacer, FALSE, FALSE, 0);
-
-    gtk_box_pack_start(GTK_BOX(scontent), tx_input_hbox, FALSE, FALSE, 0);
-
-    /* ── transmit output (radio) selector row ─────────────────────── */
+    /* ── output to radio selector row ─────────────────────────────── */
     GtkWidget* tx_output_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
 
-    GtkWidget* tx_output_label = gtk_label_new("Output to Radio:");
+    GtkWidget* tx_output_label = gtk_label_new("Output to radio:");
     gtk_widget_set_size_request(tx_output_label, 50, -1);
     gtk_label_set_xalign(GTK_LABEL(tx_output_label), 0.0);
     gtk_box_pack_start(GTK_BOX(tx_output_hbox), tx_output_label, FALSE, FALSE, 0);
@@ -342,7 +293,56 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     gtk_box_pack_start(GTK_BOX(scontent), bpf_hbox, FALSE, FALSE, 0);
 
-    /* ── separator between Transmit and Station sections ──────────── */
+    /* ── separator between Transceiver and Operator sections ───────── */
+    gtk_box_pack_start(GTK_BOX(scontent),
+                       gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);
+
+    GtkWidget* operator_heading = gtk_label_new(nullptr);
+    gtk_label_set_markup(GTK_LABEL(operator_heading), "<b>Operator</b>");
+    gtk_label_set_xalign(GTK_LABEL(operator_heading), 0.0);
+    gtk_box_pack_start(GTK_BOX(scontent), operator_heading, FALSE, FALSE, 0);
+
+    /* ── input from microphone selector row ───────────────────────── */
+    GtkWidget* tx_input_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* tx_input_label = gtk_label_new("Input from Microphone:");
+    gtk_widget_set_size_request(tx_input_label, 50, -1);
+    gtk_label_set_xalign(GTK_LABEL(tx_input_label), 0.0);
+    gtk_box_pack_start(GTK_BOX(tx_input_hbox), tx_input_label, FALSE, FALSE, 0);
+
+    g_tx_input_combo = gtk_combo_box_text_new();
+    gtk_widget_set_tooltip_text(g_tx_input_combo, "Microphone input for transmit");
+    g_signal_connect(g_tx_input_combo, "changed", G_CALLBACK(on_tx_combo_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(tx_input_hbox), g_tx_input_combo, TRUE, TRUE, 0);
+
+    /* spacer to align with refresh button above */
+    GtkWidget* tx_in_spacer = gtk_label_new("");
+    gtk_widget_set_size_request(tx_in_spacer, 28, -1);
+    gtk_box_pack_start(GTK_BOX(tx_input_hbox), tx_in_spacer, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), tx_input_hbox, FALSE, FALSE, 0);
+
+    /* ── output to speaker selector row ───────────────────────────── */
+    GtkWidget* output_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* output_label = gtk_label_new("Output to speaker:");
+    gtk_widget_set_size_request(output_label, 50, -1);
+    gtk_label_set_xalign(GTK_LABEL(output_label), 0.0);
+    gtk_box_pack_start(GTK_BOX(output_hbox), output_label, FALSE, FALSE, 0);
+
+    g_output_combo = gtk_combo_box_text_new();
+    gtk_widget_set_tooltip_text(g_output_combo, "Audio output (decoded speech)");
+    g_signal_connect(g_output_combo, "changed", G_CALLBACK(on_output_combo_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(output_hbox), g_output_combo, TRUE, TRUE, 0);
+
+    /* spacer to align with refresh button above */
+    GtkWidget* spacer = gtk_label_new("");
+    gtk_widget_set_size_request(spacer, 28, -1);
+    gtk_box_pack_start(GTK_BOX(output_hbox), spacer, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), output_hbox, FALSE, FALSE, 0);
+
+    /* ── separator between Operator and Station sections ───────────── */
     gtk_box_pack_start(GTK_BOX(scontent),
                        gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);
 

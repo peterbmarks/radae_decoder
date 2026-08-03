@@ -32,3 +32,8 @@ void start_passthrough(int in_idx, int out_idx);
    encoder is already using the mic device; safe to call any time. */
 void start_mic_monitor();
 void stop_mic_monitor();
+
+/* Settings dialog: momentary 1kHz test tone to the selected speaker output.
+   Call start on button-press, stop on button-release. */
+void start_output_test_tone();
+void stop_output_test_tone();

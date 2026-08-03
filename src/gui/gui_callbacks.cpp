@@ -429,6 +429,7 @@ void on_window_destroy(GtkWidget* /*w*/, gpointer /*data*/)
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
     stop_mic_monitor();
     delete g_mic_monitor; g_mic_monitor = nullptr;
+    stop_output_test_tone();
     /* detach recorder before stopping threads */
     if (g_decoder) g_decoder->set_recorder(nullptr);
     if (g_encoder) g_encoder->set_recorder(nullptr);

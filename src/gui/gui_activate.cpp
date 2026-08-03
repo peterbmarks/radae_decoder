@@ -356,10 +356,16 @@ void activate(GtkApplication* app, gpointer /*data*/)
     g_signal_connect(g_output_combo, "changed", G_CALLBACK(on_output_combo_changed), NULL);
     gtk_box_pack_start(GTK_BOX(output_hbox), g_output_combo, TRUE, TRUE, 0);
 
-    /* spacer to align with refresh button above */
-    GtkWidget* spacer = gtk_label_new("");
-    gtk_widget_set_size_request(spacer, 28, -1);
-    gtk_box_pack_start(GTK_BOX(output_hbox), spacer, FALSE, FALSE, 0);
+    GtkWidget* output_test_btn = gtk_button_new_with_label("Test");
+    gtk_widget_set_tooltip_text(output_test_btn,
+                                "Hold to play a 1kHz test tone to this output device");
+    g_signal_connect(output_test_btn, "pressed", G_CALLBACK(+[](GtkButton*, gpointer) {
+                         start_output_test_tone();
+                     }), nullptr);
+    g_signal_connect(output_test_btn, "released", G_CALLBACK(+[](GtkButton*, gpointer) {
+                         stop_output_test_tone();
+                     }), nullptr);
+    gtk_box_pack_start(GTK_BOX(output_hbox), output_test_btn, FALSE, FALSE, 0);
 
     gtk_box_pack_start(GTK_BOX(scontent), output_hbox, FALSE, FALSE, 0);
 

@@ -7,11 +7,19 @@
 #include "rig_control.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <thread>
+#include <vector>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 /* ── helpers ────────────────────────────────────────────────────────────── */
 
@@ -412,4 +420,55 @@ void stop_mic_monitor()
     if (g_mic_meter_timer) { g_source_remove(g_mic_meter_timer); g_mic_meter_timer = 0; }
     if (g_mic_monitor)     { g_mic_monitor->stop(); g_mic_monitor->close(); }
     if (g_mic_meter)       gtk_level_bar_set_value(GTK_LEVEL_BAR(g_mic_meter), 0.0);
+}
+
+/* ── Settings dialog: speaker output test tone ─────────────────────────── */
+
+static AudioStream       s_test_tone_stream;
+static std::thread       s_test_tone_thread;
+static std::atomic<bool> s_test_tone_running{false};
+
+static void test_tone_loop()
+{
+    constexpr int    SAMPLE_RATE = 16000;   // matches the decoder's speaker output rate
+    constexpr int    FRAMES      = 512;
+    constexpr double TONE_HZ     = 1000.0;
+    constexpr double AMPLITUDE   = 0.1 * 32767.0;
+
+    std::vector<int16_t> buf(FRAMES);
+    double phase = 0.0;
+    const double phase_inc = 2.0 * M_PI * TONE_HZ / SAMPLE_RATE;
+
+    while (s_test_tone_running.load(std::memory_order_relaxed)) {
+        for (int i = 0; i < FRAMES; ++i) {
+            buf[static_cast<size_t>(i)] = static_cast<int16_t>(AMPLITUDE * std::sin(phase));
+            phase += phase_inc;
+            if (phase > 2.0 * M_PI) phase -= 2.0 * M_PI;
+        }
+        if (s_test_tone_stream.write(buf.data(), FRAMES) == AUDIO_ERROR)
+            break;
+    }
+}
+
+void start_output_test_tone()
+{
+    if (s_test_tone_running.load()) return;
+
+    int idx = g_output_combo ? gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo)) : -1;
+    if (idx < 0 || idx >= static_cast<int>(g_output_devices.size())) return;
+
+    if (!s_test_tone_stream.open(g_output_devices[static_cast<size_t>(idx)].hw_id,
+                                 false, 1, 16000, 512))
+        return;
+
+    s_test_tone_running = true;
+    s_test_tone_thread = std::thread(test_tone_loop);
+}
+
+void stop_output_test_tone()
+{
+    if (!s_test_tone_running.load()) return;
+    s_test_tone_running = false;
+    if (s_test_tone_thread.joinable()) s_test_tone_thread.join();
+    s_test_tone_stream.close();
 }

@@ -219,6 +219,10 @@ void reporter_restart()
         }, sidCopy);
     });
 
+    /* Announce our mode before connecting so the server reports it from the
+       start, even if we never transmit during this session. */
+    g_reporter->transmit(kReporterMode, false);
+
     g_reporter->connect();
 
     /* Re-send the saved free-text message so the reporter shows it immediately
@@ -260,7 +264,7 @@ void stop_all()
 
     /* Tell the reporter we stopped transmitting. */
     if (g_reporter && was_transmitting)
-        g_reporter->transmit("RADAEV1c", false);
+        g_reporter->transmit(kReporterMode, false);
 }
 
 void start_decoder(int in_idx, int out_idx)
@@ -313,7 +317,7 @@ void start_encoder(int mic_idx, int radio_idx)
     g_encoder->start();
     rig_control_set_ptt(true);        /* key the rig if connected */
     if (g_reporter)
-        g_reporter->transmit("RADAEV1c", true);
+        g_reporter->transmit(kReporterMode, true);
     if (g_recording && g_recorder)
         g_encoder->set_recorder(g_recorder);
     set_btn_state(true);

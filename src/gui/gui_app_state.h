@@ -12,6 +12,10 @@
 #include "../src/wav/wav_recorder.h"
 #include "../network/freedv_reporter.h"
 
+/* FreeDV mode name reported to FreeDV Reporter. Bump this when the protocol
+   version changes (e.g. to "RADEV2"). */
+inline constexpr const char* kReporterMode = "RADEV1";
+
 /* ── globals (single-window app) ────────────────────────────────────────── */
 
 extern RadaeDecoder*            g_decoder;

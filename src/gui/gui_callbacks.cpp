@@ -95,7 +95,7 @@ gboolean on_meter_tick(gpointer /*data*/)
             if (new_cs) g_last_rx_callsign = cs;
             const signed char snr = static_cast<signed char>(
                 std::clamp(g_decoder->snr_dB(), -128.0f, 127.0f));
-            g_reporter->addReceiveRecord(g_last_rx_callsign, "RADAEV1c",
+            g_reporter->addReceiveRecord(g_last_rx_callsign, kReporterMode,
                                          rig_freq_hz(), snr);
             s_last_rx_report = now;
         }

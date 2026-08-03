@@ -4,6 +4,8 @@ Originally from: https://github.com/peterbmarks/radae_decoder
 
 Based on code from: https://github.com/drowe67/radae
 
+Uses the, now official, c api from https://github.com/freedv/rade_c
+
 A real-time RADAE (Radio Autoencoder) encoder and decoder for Linux. In receive (RX) mode it captures RADAE modem audio from an audio input device, decodes it using a neural OFDM demodulator and FARGAN vocoder, and plays the decoded speech on an audio output device. In transmit (TX) mode it captures speech from a microphone, extracts LPCNet features, encodes them with the RADE neural encoder, and outputs the OFDM modem signal to a radio. Includes a GTK3 UI with level meters, spectrum/waterfall displays, sync status, SNR, and a TX output level slider.
 
 ![Platform](https://img.shields.io/badge/Platform-Linux-blue) ![GTK3](https://img.shields.io/badge/GUI-GTK3-green) ![ALSA](https://img.shields.io/badge/Audio-ALSA-orange) ![RADAE](https://img.shields.io/badge/Codec-RADAE-purple)

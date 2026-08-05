@@ -478,15 +478,12 @@ void activate(GtkApplication* app, gpointer /*data*/)
     g_meter_in = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_in, FALSE, FALSE, 0);
 
-    GtkWidget* spec_waterfall_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-
-    g_spectrum = spectrum_widget_new();
-    gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_spectrum, TRUE, TRUE, 0);
+    GtkWidget* waterfall_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
 
     g_waterfall = waterfall_widget_new();
-    gtk_box_pack_start(GTK_BOX(spec_waterfall_vbox), g_waterfall, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(waterfall_vbox), g_waterfall, TRUE, TRUE, 0);
 
-    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), spec_waterfall_vbox, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(meter_spec_hbox), waterfall_vbox, TRUE, TRUE, 0);
 
     g_meter_out = meter_widget_new();
     gtk_box_pack_start(GTK_BOX(meter_spec_hbox), g_meter_out, FALSE, FALSE, 0);

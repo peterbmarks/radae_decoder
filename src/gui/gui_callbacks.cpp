@@ -3,7 +3,6 @@
 #include "gui_controls.h"
 #include "gui_config.h"
 #include "meter_widget.h"
-#include "spectrum_widget.h"
 #include "waterfall_widget.h"
 #include "rig_control.h"
 
@@ -44,9 +43,6 @@ gboolean on_meter_tick(gpointer /*data*/)
         {
             float spec[RadaeEncoder::SPECTRUM_BINS];
             g_encoder->get_spectrum(spec, RadaeEncoder::SPECTRUM_BINS);
-            if (g_spectrum)
-                spectrum_widget_update(g_spectrum, spec, RadaeEncoder::SPECTRUM_BINS,
-                                       g_encoder->spectrum_sample_rate());
             if (g_waterfall)
                 waterfall_widget_update(g_waterfall, spec, RadaeEncoder::SPECTRUM_BINS,
                                         g_encoder->spectrum_sample_rate());
@@ -65,9 +61,6 @@ gboolean on_meter_tick(gpointer /*data*/)
 
         float spec[AudioPassthrough::SPECTRUM_BINS];
         g_passthrough->get_spectrum(spec, AudioPassthrough::SPECTRUM_BINS);
-        if (g_spectrum)
-            spectrum_widget_update(g_spectrum, spec, AudioPassthrough::SPECTRUM_BINS,
-                                   g_passthrough->spectrum_sample_rate());
         if (g_waterfall)
             waterfall_widget_update(g_waterfall, spec, AudioPassthrough::SPECTRUM_BINS,
                                     g_passthrough->spectrum_sample_rate());
@@ -125,9 +118,6 @@ gboolean on_meter_tick(gpointer /*data*/)
     {
         float spec[RadaeDecoder::SPECTRUM_BINS];
         g_decoder->get_spectrum(spec, RadaeDecoder::SPECTRUM_BINS);
-        if (g_spectrum)
-            spectrum_widget_update(g_spectrum, spec, RadaeDecoder::SPECTRUM_BINS,
-                                   g_decoder->spectrum_sample_rate());
         if (g_waterfall)
             waterfall_widget_update(g_waterfall, spec, RadaeDecoder::SPECTRUM_BINS,
                                     g_decoder->spectrum_sample_rate());

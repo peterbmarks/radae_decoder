@@ -2,7 +2,6 @@
 #include "gui_app_state.h"
 #include "gui_callbacks.h"    // on_meter_tick — passed to g_timeout_add
 #include "meter_widget.h"
-#include "spectrum_widget.h"
 #include "waterfall_widget.h"
 #include "rig_control.h"
 
@@ -265,7 +264,6 @@ void stop_all()
     if (g_timer)   { g_source_remove(g_timer); g_timer = 0; }
     if (g_meter_in)  meter_widget_update(g_meter_in, 0.f);
     if (g_meter_out) meter_widget_update(g_meter_out, 0.f);
-    if (g_spectrum)  spectrum_widget_update(g_spectrum, nullptr, 0, 8000.f);
     if (g_waterfall) waterfall_widget_update(g_waterfall, nullptr, 0, 8000.f);
     set_btn_state(false);
     rig_control_set_ptt_async(false); /* release PTT if rig is connected */

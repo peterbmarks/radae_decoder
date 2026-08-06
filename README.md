@@ -1,5 +1,8 @@
 # RADAE Gui
 
+This project is badly named as when I started my dream was to just decode FreeDV RADEV1.
+After that was achieved I pressed on and made a full transceiver.
+
 Originally from: https://github.com/peterbmarks/radae_decoder
 
 Based on code from: https://github.com/drowe67/radae
@@ -158,6 +161,14 @@ make -j$(nproc)
 ```
 Binary is now at: build/RADAE_Gui
 Tools are at: build/tools/
+
+## Build error?
+
+The large model download is cached in a .cache directory. If you get build errors
+it can help to remove that and build again. In the project directory:
+```
+rm -rf .cache
+```
 
 ### Audio backend selection
 

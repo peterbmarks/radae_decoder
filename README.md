@@ -381,10 +381,14 @@ Command-line options always override values in the config file.
 While running, the tool prints a live status line to `stderr` every second:
 
 ```
-SYNC SNR: 12.3 dB  Freq: +1.5 Hz  In: 0.45  Out: 0.62
+SYNC SNR: 12.3 dB  Freq: +1.5 Hz  In:  49% (-30 dBFS)  Out:  67% (-20 dBFS)
 ```
 
-`SYNC` becomes `----` when the receiver has not yet locked on to a signal. Press **Ctrl+C** to stop cleanly (an EOO frame is sent automatically in TX mode).
+`SYNC` becomes `----` when the receiver has not yet locked on to a signal.
+
+Audio levels are shown the same way as the GUI's level meters: as a position on a −60 to 0 dBFS scale, expressed as a percentage of full scale, with the underlying dBFS value in brackets. A healthy receive level sits around the middle of the range — roughly 40–80%. Because hearing is logarithmic, a signal that reads mid-scale here has an RMS amplitude of only about 0.03 of full scale, so the percentage is a far better guide to whether your levels are right than the raw linear amplitude would be.
+
+Press **Ctrl+C** to stop cleanly (an EOO frame is sent automatically in TX mode).
 
 ## Architecture
 

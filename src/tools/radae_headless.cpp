@@ -36,6 +36,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <getopt.h>
 #include <signal.h>
 #include <unistd.h>
@@ -130,6 +131,28 @@ bool parse_config_file(const char* filename, Config& config) {
     }
 
     return true;
+}
+
+/* ── Level formatting ──────────────────────────────────────────────────── */
+
+/* The encoder and decoder report levels as RMS amplitude relative to digital
+   full scale, so a healthy signal sits around 0.03 and the raw linear figure
+   looks alarmingly small even when the level is fine.  Audio levels are read
+   logarithmically, so map onto the same -60..0 dBFS range the GUI meter uses
+   and show that position as a percentage of full scale. */
+
+static const float LEVEL_DB_MIN = -60.0f;
+
+float level_dbfs(float rms) {
+    if (rms < 1e-6f) return LEVEL_DB_MIN;
+    float db = 20.0f * log10f(rms);
+    if (db < LEVEL_DB_MIN) return LEVEL_DB_MIN;
+    if (db > 0.0f)         return 0.0f;
+    return db;
+}
+
+int level_percent(float rms) {
+    return (int)lrintf((level_dbfs(rms) - LEVEL_DB_MIN) / -LEVEL_DB_MIN * 100.0f);
 }
 
 /* ── Device enumeration ────────────────────────────────────────────────── */
@@ -413,7 +436,9 @@ int main(int argc, char *argv[]) {
             /* Could print status here if desired */
             float input_level = encoder.get_input_level();
             float output_level = encoder.get_output_level();
-            fprintf(stderr, "\rInput: %.2f  Output: %.2f  ", input_level, output_level);
+            fprintf(stderr, "\rIn: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
+                    level_percent(input_level),  level_dbfs(input_level),
+                    level_percent(output_level), level_dbfs(output_level));
             fflush(stderr);
         }
         fprintf(stderr, "\n");
@@ -446,8 +471,12 @@ int main(int argc, char *argv[]) {
             float input_level = decoder.get_input_level();
             float output_level = decoder.get_output_level_left();
 
-            fprintf(stderr, "\r%s SNR: %.1f dB  Freq: %+.1f Hz  In: %.2f  Out: %.2f  ",
-                    synced ? "SYNC" : "----", snr, freq_offset, input_level, output_level);
+            fprintf(stderr,
+                    "\r%s SNR: %.1f dB  Freq: %+.1f Hz  "
+                    "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
+                    synced ? "SYNC" : "----", snr, freq_offset,
+                    level_percent(input_level),  level_dbfs(input_level),
+                    level_percent(output_level), level_dbfs(output_level));
             fflush(stderr);
         }
         fprintf(stderr, "\n");

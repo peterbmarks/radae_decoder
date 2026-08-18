@@ -219,7 +219,7 @@ If you are building the no gui version on an older Raspberry Pi (it works on a P
 you may need the following dependencies to get Pulse audio to show devices:
 
 ```
-sudo apt install pulseaudio libpulse-dev
+sudo apt install pulseaudio pulsemixer
 ```
 
 If you get a compiler error on a low memory machine don't use multi-thread make. (no -j4 or whatever).

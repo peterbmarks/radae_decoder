@@ -203,6 +203,7 @@ target_link_libraries(webrx_rade_decode rade opus m)
 
 add_executable(radae_headless
     src/tools/radae_headless.cpp
+    src/tools/device_picker.cpp
     src/audio/audio_input.cpp
     src/radae_top/rade_decoder.cpp
     src/radae_top/rade_encoder.cpp

@@ -47,6 +47,7 @@
 #include "../src/radae_top/rade_decoder.h"
 #include "../src/radae_top/rade_encoder.h"
 #include "../src/audio/audio_input.h"
+#include "device_picker.h"
 
 /* ── Configuration structure ──────────────────────────────────────────── */
 
@@ -69,18 +70,19 @@ void signal_handler(int signum) {
 
 /* ── Configuration file I/O ───────────────────────────────────────────── */
 
-bool write_config_file(const char* filename, const Config& config) {
+bool write_config_file(const char* filename, const Config& config,
+                      bool include_empty = false) {
     std::ofstream file(filename);
     if (!file.is_open()) {
         fprintf(stderr, "Error: Could not write config file: %s\n", filename);
         return false;
     }
     file << "# radae_headless configuration\n";
-    if (!config.fromradio.empty()) file << "fromradio=" << config.fromradio << '\n';
-    if (!config.toradio.empty())   file << "toradio="   << config.toradio   << '\n';
-    if (!config.frommic.empty())   file << "frommic="   << config.frommic   << '\n';
-    if (!config.tospeaker.empty()) file << "tospeaker=" << config.tospeaker << '\n';
-    if (!config.call.empty())      file << "call="      << config.call      << '\n';
+    if (include_empty || !config.fromradio.empty()) file << "fromradio=" << config.fromradio << '\n';
+    if (include_empty || !config.toradio.empty())   file << "toradio="   << config.toradio   << '\n';
+    if (include_empty || !config.frommic.empty())   file << "frommic="   << config.frommic   << '\n';
+    if (include_empty || !config.tospeaker.empty()) file << "tospeaker=" << config.tospeaker << '\n';
+    if (!config.call.empty())                       file << "call="      << config.call      << '\n';
     return true;
 }
 
@@ -155,6 +157,64 @@ void list_devices(void) {
         }
     }
     fprintf(stderr, "\n");
+}
+
+/* ── First-run setup wizard ────────────────────────────────────────────── */
+
+/* Walk the user through choosing each of the four audio devices.  Returns
+   false if the user backed out, in which case nothing should be written. */
+bool run_setup_wizard(Config& config) {
+    auto inputs  = AudioInput::enumerate_devices();
+    auto outputs = AudioInput::enumerate_playback_devices();
+
+    if (inputs.empty() && outputs.empty()) {
+        fprintf(stderr, "Error: no audio devices found.\n");
+        return false;
+    }
+
+    struct Step {
+        const char*  title;
+        const char*  hint;
+        std::string* target;
+        bool         is_input;
+    };
+
+    const Step steps[] = {
+        { "fromradio", "Audio input carrying the RADAE signal from the radio",
+          &config.fromradio, true  },
+        { "tospeaker", "Audio output for the decoded speech",
+          &config.tospeaker, false },
+        { "frommic",   "Audio input from your microphone, used when transmitting",
+          &config.frommic,   true  },
+        { "toradio",   "Audio output feeding the radio's transmitter",
+          &config.toradio,   false },
+    };
+
+    fprintf(stderr, "\nNo configuration found - let's set up your audio devices.\n\n");
+
+    for (const Step& step : steps) {
+        const auto& devices = step.is_input ? inputs : outputs;
+        if (devices.empty()) {
+            fprintf(stderr, "%s: no %s devices available, skipping\n",
+                    step.title, step.is_input ? "input" : "output");
+            step.target->clear();
+            continue;
+        }
+
+        int choice = device_picker::pick(step.title, step.hint, devices);
+        if (choice == device_picker::PICK_CANCEL) {
+            fprintf(stderr, "\nSetup cancelled - no configuration written.\n");
+            return false;
+        }
+        if (choice == device_picker::PICK_NONE) {
+            step.target->clear();
+        } else {
+            *step.target = devices[choice].hw_id;
+        }
+    }
+
+    fprintf(stderr, "\n");
+    return true;
 }
 
 /* ── Usage information ─────────────────────────────────────────────────── */
@@ -266,6 +326,27 @@ int main(int argc, char *argv[]) {
                 if (write_config_file(config_file, overrides))
                     fprintf(stderr, "Config file '%s' not found — created from command line options.\n",
                             config_file);
+            } else if (!transmit_mode && device_picker::available()) {
+                /* Interactive first run: ask for each device, then save and
+                   carry straight on into receive mode. */
+                if (!run_setup_wizard(config)) {
+                    audio_terminate();
+                    return 1;
+                }
+                if (!write_config_file(config_file, config, true)) {
+                    audio_terminate();
+                    return 1;
+                }
+                fprintf(stderr, "Saved configuration to '%s'.\n", config_file);
+
+                if (config.fromradio.empty() || config.tospeaker.empty()) {
+                    fprintf(stderr,
+                            "Receiving needs both fromradio and tospeaker.\n"
+                            "Edit '%s', or delete it and run again to choose "
+                            "different devices.\n", config_file);
+                    audio_terminate();
+                    return 1;
+                }
             } else {
                 fprintf(stderr, "Warning: config file '%s' not found and no options given.\n",
                         config_file);

@@ -336,6 +336,29 @@ Use `--devices` to discover the correct device names for your system:
 ./build/radae_headless --devices
 ```
 
+### First run — interactive setup
+
+Run with no options and no existing `radae_headless.conf` and the tool walks you
+through picking your audio devices in the terminal:
+
+```bash
+./build/radae_headless
+```
+
+Each of the four devices is chosen in turn — `fromradio`, `tospeaker`, `frommic`,
+then `toradio` — from a list of the devices found on your system, showing each
+device's description. Use the up and down arrow keys (or `j`/`k`) to move, Enter
+to choose, and `q` or Esc to cancel without writing anything. Every list ends with
+a **None** entry for devices you do not want to configure, and the highlighted
+entry's device id is shown beneath the list.
+
+The choices are written to `radae_headless.conf` and the tool then starts
+receiving straight away. To choose different devices later, edit the config file
+or delete it and run again.
+
+The wizard only appears on an interactive terminal; over a pipe or under a
+service manager the tool behaves exactly as before.
+
 ### Configuration file
 
 Settings are persisted to `radae_headless.conf` (or the file given with `-c`). If the config file does not exist and device options are supplied on the command line, the file is created automatically.
@@ -647,6 +670,7 @@ src/
 │   ├── rade_demod.cpp              File tool: WAV RADAE audio in → decoded speech WAV out
 │   ├── rade_modulate.cpp           File tool: speech WAV in → RADAE OFDM WAV out
 │   ├── radae_headless.cpp          Headless transceiver: full RX or TX pipeline with no GUI, config-file driven
+│   ├── device_picker.cpp           Terminal device chooser used by radae_headless's first-run setup
 │   ├── radae_rx.c                  Streaming receiver: IQ float32 on stdin → LPCNet features on stdout
 │   ├── radae_tx.c                  Streaming transmitter: LPCNet features on stdin → IQ float32 on stdout
 │   ├── real2iq.c                   Converts real baseband float32 to complex IQ via Hilbert transform

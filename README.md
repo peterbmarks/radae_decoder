@@ -213,6 +213,17 @@ export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
 cmake ..
 ```
 
+#### Raspberry Pi
+
+If you are building the no gui version on an older Raspberry Pi (it works on a Pi 3b)
+you may need the following dependencies to get Pulse audio to show devices:
+
+```
+sudo apt install pulseaudio libpulse-dev
+```
+
+If you get a compiler error on a low memory machine don't use multi-thread make. (no -j4 or whatever).
+
 ## Debian Package for webrx_rade_decode
 
 `webrx_rade_decode` can be packaged as a self-contained Debian `.deb` for easy installation on Debian/Ubuntu systems. All dependencies (Opus, RADE library, neural network weights) are statically linked into the binary, so the only runtime requirement is `libc6`.

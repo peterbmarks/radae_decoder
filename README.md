@@ -159,6 +159,13 @@ and take a while to compile.
 ```
 make -j$(nproc)
 ```
+
+During the build of Opus, I get this warning:
+```
+#warning "Only SSE and SSE2 are available. On newer machines, enable SSSE3/AVX/AVX2 using -march= to get better performance"
+```
+Looking in to this found no speedup by using AVX2.
+
 Binary is now at: build/RADAE_Gui
 Tools are at: build/tools/
 

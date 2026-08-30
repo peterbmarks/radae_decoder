@@ -60,13 +60,28 @@ struct Config {
     std::string call;
 };
 
-/* ── Global flag for signal handling ──────────────────────────────────── */
+/* ── Global flags for signal handling ─────────────────────────────────── */
+
+/* MODE_NONE means no switch has been requested; SIGUSR1/SIGUSR2 request a
+   runtime switch to transmit/receive without restarting the process. */
+enum { MODE_NONE = -1, MODE_RECEIVE = 0, MODE_TRANSMIT = 1 };
 
 static volatile bool g_running = true;
+static volatile sig_atomic_t g_mode_request = MODE_NONE;
 
 void signal_handler(int signum) {
     (void)signum;
     g_running = false;
+}
+
+void signal_handler_tx(int signum) {
+    (void)signum;
+    g_mode_request = MODE_TRANSMIT;
+}
+
+void signal_handler_rx(int signum) {
+    (void)signum;
+    g_mode_request = MODE_RECEIVE;
 }
 
 /* ── Configuration file I/O ───────────────────────────────────────────── */
@@ -258,7 +273,82 @@ void usage(void) {
     fprintf(stderr, "  RX mode: reads audio from --fromradio, decodes, plays to --tospeaker\n");
     fprintf(stderr, "  TX mode: reads audio from --frommic, encodes, sends to --toradio\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "Press Ctrl+C to stop.\n");
+    fprintf(stderr, "Send SIGUSR1 to switch to transmit, SIGUSR2 to switch to receive\n");
+    fprintf(stderr, "(both fromradio/tospeaker and frommic/toradio must be configured\n");
+    fprintf(stderr, "to switch at runtime). Press Ctrl+C to stop.\n");
+}
+
+/* ── Mode run loops ────────────────────────────────────────────────────── */
+
+/* Each returns when told to stop (g_running cleared), a switch to the other
+   mode is requested, or the encoder/decoder stops itself (e.g. device
+   error) - the caller distinguishes these via g_running / g_mode_request. */
+
+int run_transmit_mode(const Config& config) {
+    RadaeEncoder encoder;
+
+    fprintf(stderr, "Opening audio devices...\n");
+    if (!encoder.open(config.frommic, config.toradio)) {
+        fprintf(stderr, "Error: Failed to open encoder devices\n");
+        return -1;
+    }
+
+    fprintf(stderr, "Starting encoder...\n");
+    encoder.start();
+
+    fprintf(stderr, "Running in TRANSMIT mode... Press Ctrl+C to stop\n");
+    while (g_running && g_mode_request == MODE_NONE && encoder.is_running()) {
+        sleep(1);
+        float input_level = encoder.get_input_level();
+        float output_level = encoder.get_output_level();
+        fprintf(stderr, "\rIn: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
+                level_percent(input_level),  level_dbfs(input_level),
+                level_percent(output_level), level_dbfs(output_level));
+        fflush(stderr);
+    }
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Stopping encoder...\n");
+    encoder.stop();
+    encoder.close();
+    return 0;
+}
+
+int run_receive_mode(const Config& config) {
+    RadaeDecoder decoder;
+
+    fprintf(stderr, "Opening audio devices...\n");
+    if (!decoder.open(config.fromradio, config.tospeaker)) {
+        fprintf(stderr, "Error: Failed to open decoder devices\n");
+        return -1;
+    }
+
+    fprintf(stderr, "Starting decoder...\n");
+    decoder.start();
+
+    fprintf(stderr, "Running in RECEIVE mode... Press Ctrl+C to stop\n");
+    while (g_running && g_mode_request == MODE_NONE && decoder.is_running()) {
+        sleep(1);
+        bool synced = decoder.is_synced();
+        float snr = decoder.snr_dB();
+        float freq_offset = decoder.freq_offset();
+        float input_level = decoder.get_input_level();
+        float output_level = decoder.get_output_level_left();
+
+        fprintf(stderr,
+                "\r%s SNR: %.1f dB  Freq: %+.1f Hz  "
+                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
+                synced ? "SYNC" : "----", snr, freq_offset,
+                level_percent(input_level),  level_dbfs(input_level),
+                level_percent(output_level), level_dbfs(output_level));
+        fflush(stderr);
+    }
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Stopping decoder...\n");
+    decoder.stop();
+    decoder.close();
+    return 0;
 }
 
 /* ── Main ──────────────────────────────────────────────────────────────── */
@@ -384,106 +474,79 @@ int main(int argc, char *argv[]) {
     if (override_tospeaker) config.tospeaker = overrides.tospeaker;
     if (override_call) config.call = overrides.call;
 
-    /* Validate configuration based on mode */
+    /* Validate configuration based on initial mode; device info for the
+       starting mode is printed by the run loop below */
     if (transmit_mode) {
         if (config.frommic.empty() || config.toradio.empty()) {
             fprintf(stderr, "Error: TX mode requires --frommic and --toradio\n");
             usage();
             return 1;
         }
-        fprintf(stderr, "Starting in TRANSMIT mode\n");
-        fprintf(stderr, "  Microphone: %s\n", config.frommic.c_str());
-        fprintf(stderr, "  Radio out:  %s\n", config.toradio.c_str());
     } else {
         if (config.fromradio.empty() || config.tospeaker.empty()) {
             fprintf(stderr, "Error: RX mode requires --fromradio and --tospeaker\n");
             usage();
             return 1;
         }
-        fprintf(stderr, "Starting in RECEIVE mode\n");
-        fprintf(stderr, "  Radio in:  %s\n", config.fromradio.c_str());
-        fprintf(stderr, "  Speakers:  %s\n", config.tospeaker.c_str());
     }
 
     if (!config.call.empty()) {
         fprintf(stderr, "  Call:      %s\n", config.call.c_str());
     }
 
-    /* Set up signal handler for graceful shutdown */
+    /* Set up signal handlers for graceful shutdown and mode switching */
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+    signal(SIGUSR1, signal_handler_tx);
+    signal(SIGUSR2, signal_handler_rx);
 
     /* Initialize RADE */
     rade_initialize();
 
-    if (transmit_mode) {
-        /* ── Transmit mode ─────────────────────────────────────────────── */
-        RadaeEncoder encoder;
+    bool current_transmit = transmit_mode;
+    int result = 0;
 
-        fprintf(stderr, "Opening audio devices...\n");
-        if (!encoder.open(config.frommic, config.toradio)) {
-            fprintf(stderr, "Error: Failed to open encoder devices\n");
-            rade_finalize();
-            return 1;
+    while (g_running) {
+        g_mode_request = MODE_NONE;
+
+        if (current_transmit) {
+            if (config.frommic.empty() || config.toradio.empty()) {
+                fprintf(stderr, "Error: TX mode requires frommic and toradio - cannot switch\n");
+                result = 1;
+                break;
+            }
+            fprintf(stderr, "Starting in TRANSMIT mode\n");
+            fprintf(stderr, "  Microphone: %s\n", config.frommic.c_str());
+            fprintf(stderr, "  Radio out:  %s\n", config.toradio.c_str());
+            if (run_transmit_mode(config) != 0) {
+                result = 1;
+                break;
+            }
+        } else {
+            if (config.fromradio.empty() || config.tospeaker.empty()) {
+                fprintf(stderr, "Error: RX mode requires fromradio and tospeaker - cannot switch\n");
+                result = 1;
+                break;
+            }
+            fprintf(stderr, "Starting in RECEIVE mode\n");
+            fprintf(stderr, "  Radio in:  %s\n", config.fromradio.c_str());
+            fprintf(stderr, "  Speakers:  %s\n", config.tospeaker.c_str());
+            if (run_receive_mode(config) != 0) {
+                result = 1;
+                break;
+            }
         }
 
-        fprintf(stderr, "Starting encoder...\n");
-        encoder.start();
+        if (!g_running) break;
 
-        fprintf(stderr, "Running... Press Ctrl+C to stop\n");
-        while (g_running && encoder.is_running()) {
-            sleep(1);
-            /* Could print status here if desired */
-            float input_level = encoder.get_input_level();
-            float output_level = encoder.get_output_level();
-            fprintf(stderr, "\rIn: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
-                    level_percent(input_level),  level_dbfs(input_level),
-                    level_percent(output_level), level_dbfs(output_level));
-            fflush(stderr);
+        if (g_mode_request == MODE_TRANSMIT) {
+            current_transmit = true;
+        } else if (g_mode_request == MODE_RECEIVE) {
+            current_transmit = false;
+        } else {
+            /* Loop exited on its own (device stopped), not a mode switch */
+            break;
         }
-        fprintf(stderr, "\n");
-
-        fprintf(stderr, "Stopping encoder...\n");
-        encoder.stop();
-        encoder.close();
-
-    } else {
-        /* ── Receive mode ──────────────────────────────────────────────── */
-        RadaeDecoder decoder;
-
-        fprintf(stderr, "Opening audio devices...\n");
-        if (!decoder.open(config.fromradio, config.tospeaker)) {
-            fprintf(stderr, "Error: Failed to open decoder devices\n");
-            rade_finalize();
-            return 1;
-        }
-
-        fprintf(stderr, "Starting decoder...\n");
-        decoder.start();
-
-        fprintf(stderr, "Running... Press Ctrl+C to stop\n");
-        while (g_running && decoder.is_running()) {
-            sleep(1);
-            /* Print status */
-            bool synced = decoder.is_synced();
-            float snr = decoder.snr_dB();
-            float freq_offset = decoder.freq_offset();
-            float input_level = decoder.get_input_level();
-            float output_level = decoder.get_output_level_left();
-
-            fprintf(stderr,
-                    "\r%s SNR: %.1f dB  Freq: %+.1f Hz  "
-                    "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
-                    synced ? "SYNC" : "----", snr, freq_offset,
-                    level_percent(input_level),  level_dbfs(input_level),
-                    level_percent(output_level), level_dbfs(output_level));
-            fflush(stderr);
-        }
-        fprintf(stderr, "\n");
-
-        fprintf(stderr, "Stopping decoder...\n");
-        decoder.stop();
-        decoder.close();
     }
 
     /* Cleanup */
@@ -491,5 +554,5 @@ int main(int argc, char *argv[]) {
     audio_terminate();
 
     fprintf(stderr, "Shutdown complete\n");
-    return 0;
+    return result;
 }

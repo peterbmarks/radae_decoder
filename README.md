@@ -408,6 +408,29 @@ Audio levels are shown the same way as the GUI's level meters: as a position on 
 
 Press **Ctrl+C** to stop cleanly (an EOO frame is sent automatically in TX mode).
 
+### Signals to switch between receive and transmit
+
+radae_headless handles two signals, one to switch to transmit, the other to switch
+to receive.
+
+There is a python program example illustrating how to send the signals.
+
+First you'll need to create the config file, then run radae_headless in the background and note
+the process id (PID)
+
+```
+./radae_headless &
+[2] 4096747
+```
+
+Now run the sample python program (best in another window)
+
+```
+./src/tools/radae_headless_switch_demo.py 
+```
+
+This will switch back and forth a few times. You'll see in the window that launched radae_headless that it's handling the signals.
+
 ## Architecture
 
 ### Component overview

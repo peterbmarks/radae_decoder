@@ -293,6 +293,10 @@ int run_transmit_mode(const Config& config) {
         return -1;
     }
 
+    /* The callsign travels in the end-of-over frame the encoder sends when
+       the transmission stops, so it has to be set before we start. */
+    encoder.set_callsign(config.call);
+
     fprintf(stderr, "Starting encoder...\n");
     encoder.start();
 
@@ -308,7 +312,9 @@ int run_transmit_mode(const Config& config) {
     }
     fprintf(stderr, "\n");
 
-    fprintf(stderr, "Stopping encoder...\n");
+    /* stop() lets the encoder run out its loop, which sends the end-of-over
+       frame and waits for it to reach the radio before returning. */
+    fprintf(stderr, "Stopping encoder (sending end of over)...\n");
     encoder.stop();
     encoder.close();
     return 0;

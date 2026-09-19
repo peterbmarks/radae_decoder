@@ -327,6 +327,7 @@ int run_receive_mode(const Config& config) {
     decoder.start();
 
     fprintf(stderr, "Running in RECEIVE mode... Press Ctrl+C to stop\n");
+    std::string last_shown_callsign;
     while (g_running && g_mode_request == MODE_NONE && decoder.is_running()) {
         sleep(1);
         bool synced = decoder.is_synced();
@@ -334,13 +335,20 @@ int run_receive_mode(const Config& config) {
         float freq_offset = decoder.freq_offset();
         float input_level = decoder.get_input_level();
         float output_level = decoder.get_output_level_left();
+        std::string callsign = decoder.last_callsign();
+
+        if (!callsign.empty() && callsign != last_shown_callsign) {
+            last_shown_callsign = callsign;
+            fprintf(stderr, "\nEOO callsign received: %s\n", callsign.c_str());
+        }
 
         fprintf(stderr,
                 "\r%s SNR: %.1f dB  Freq: %+.1f Hz  "
-                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)  ",
+                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)%s%s  ",
                 synced ? "SYNC" : "----", snr, freq_offset,
                 level_percent(input_level),  level_dbfs(input_level),
-                level_percent(output_level), level_dbfs(output_level));
+                level_percent(output_level), level_dbfs(output_level),
+                callsign.empty() ? "" : "  Call: ", callsign.c_str());
         fflush(stderr);
     }
     fprintf(stderr, "\n");

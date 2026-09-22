@@ -343,6 +343,10 @@ int run_receive_mode(const Config& config) {
         float output_level = decoder.get_output_level_left();
         std::string callsign = decoder.last_callsign();
 
+        if(synced == false) {
+            last_shown_callsign = "";
+        }
+        
         if (!callsign.empty() && callsign != last_shown_callsign) {
             last_shown_callsign = callsign;
             fprintf(stderr, "\nEOO callsign received: %s\n", callsign.c_str());

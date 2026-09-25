@@ -344,7 +344,7 @@ int run_receive_mode(const Config& config) {
 
         fprintf(stderr,
                 "%s SNR: %.1f dB  Freq: %+.1f Hz  "
-                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)%s\n",
+                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)\n",
                 synced ? "SYNC" : "----", snr, freq_offset,
                 level_percent(input_level),  level_dbfs(input_level),
                 level_percent(output_level), level_dbfs(output_level));

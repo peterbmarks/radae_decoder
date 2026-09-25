@@ -624,6 +624,7 @@ void RadaeDecoder::processing_loop()
                 {
                     std::lock_guard<std::mutex> lk(callsign_mutex_);
                     last_callsign_ = callsign;
+                    fprintf(stderr, "\nEOO callsign received: %s\n", callsign.c_str());
                 }
 
                 /* log datetime and callsign to file */

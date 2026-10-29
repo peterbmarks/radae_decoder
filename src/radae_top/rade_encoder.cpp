@@ -284,6 +284,16 @@ void RadaeEncoder::processing_loop()
 
     int feat_count = 0;   /* how many feature frames accumulated */
 
+    /* ring of recent TX output samples for the spectrum FFT */
+    float fft_ring[FFT_SIZE] = {};
+    int   fft_ring_pos  = 0;
+    int   fft_ring_fill = 0;
+    {
+        /* blank until the first FFT (0 dB would paint the waterfall white) */
+        std::lock_guard<std::mutex> lock(spectrum_mutex_);
+        std::fill(std::begin(spectrum_mag_), std::end(spectrum_mag_), -200.0f);
+    }
+
     /* capture read buffer */
     constexpr int READ_FRAMES = 160;
     std::vector<int16_t> capture_buf(READ_FRAMES);
@@ -406,13 +416,20 @@ void RadaeEncoder::processing_loop()
                 if (bpf_enabled_.load(std::memory_order_relaxed))
                     rade_bpf_process(&bpf_, tx_out.data(), tx_out.data(), n_out);
 
-                /* FFT spectrum of TX output (real part, last FFT_SIZE samples) */
-                if (n_out >= FFT_SIZE) {
+                /* FFT spectrum of TX output (real part, last FFT_SIZE samples).
+                   A modem frame (960) is shorter than FFT_SIZE (1024), so keep a
+                   ring of recent output spanning modem frames. */
+                for (int i = 0; i < n_out; i++) {
+                    fft_ring[fft_ring_pos] = tx_out[static_cast<size_t>(i)].real;
+                    fft_ring_pos = (fft_ring_pos + 1) % FFT_SIZE;
+                }
+                fft_ring_fill = std::min(FFT_SIZE, fft_ring_fill + n_out);
+                if (fft_ring_fill >= FFT_SIZE) {
                     std::complex<float> fft_buf[FFT_SIZE];
-                    int off = n_out - FFT_SIZE;
-                    for (int i = 0; i < FFT_SIZE; i++)
-                        fft_buf[i] = tx_out[static_cast<size_t>(off + i)].real
-                                     * fft_window_[i];
+                    for (int i = 0; i < FFT_SIZE; i++) {
+                        int idx = (fft_ring_pos + i) % FFT_SIZE;   // oldest-first ordering
+                        fft_buf[i] = fft_ring[idx] * fft_window_[i];
+                    }
                     fft_radix2(fft_buf, FFT_SIZE);
                     float tmp[SPECTRUM_BINS];
                     for (int i = 0; i < SPECTRUM_BINS; i++) {

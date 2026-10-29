@@ -177,10 +177,11 @@ void activate(GtkApplication* app, gpointer /*data*/)
         /* ── tree view ──────────────────────────────────────────────── */
         // Columns 0-7: Callsign, Grid, Frequency, Mode, TX, RX'd, SNR, Message
         // Column 8 (hidden): SID — used as the row key for incremental updates
-        GtkListStore* store = gtk_list_store_new(9,
+        // Columns 9-10 (hidden): row background / foreground colour (NULL = theme default)
+        GtkListStore* store = gtk_list_store_new(11,
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-            G_TYPE_STRING);
+            G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 
         g_reporter_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
         g_object_unref(store);
@@ -192,7 +193,8 @@ void activate(GtkApplication* app, gpointer /*data*/)
         for (int i = 0; i < 8; ++i) {
             GtkCellRenderer*   r   = gtk_cell_renderer_text_new();
             GtkTreeViewColumn* col = gtk_tree_view_column_new_with_attributes(
-                col_titles[i], r, "text", i, nullptr);
+                col_titles[i], r, "text", i,
+                "cell-background", 9, "foreground", 10, nullptr);
             gtk_tree_view_column_set_resizable(col, TRUE);
             gtk_tree_view_append_column(GTK_TREE_VIEW(g_reporter_view), col);
         }

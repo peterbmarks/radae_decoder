@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -99,6 +100,22 @@ uint64_t rig_freq_hz()
    retains departed stations across reconnects. */
 static std::map<std::string, StationInfo> s_seen_stations;
 
+/* Row highlight expiry times (keyed by SID): green after a new SNR report,
+   yellow after a message change.  A transmitting station is always red. */
+static constexpr guint REPORTER_RX_HIGHLIGHT_MS  = 5000;
+static constexpr guint REPORTER_MSG_HIGHLIGHT_MS = 10000;
+static std::map<std::string, std::chrono::steady_clock::time_point> s_rx_highlight_until;
+static std::map<std::string, std::chrono::steady_clock::time_point> s_msg_highlight_until;
+
+/* Redraw the list once a highlight has expired so the row returns to normal. */
+static void schedule_reporter_refresh(guint ms)
+{
+    g_timeout_add(ms + 50, +[](gpointer) -> gboolean {
+        refresh_reporter_list();
+        return G_SOURCE_REMOVE;
+    }, nullptr);
+}
+
 /* Rebuild the station-list GtkTreeView from s_seen_stations.
    Must be called from the GTK main thread. */
 void refresh_reporter_list()
@@ -109,9 +126,36 @@ void refresh_reporter_list()
         gtk_tree_view_get_model(GTK_TREE_VIEW(g_reporter_view)));
     if (!store) return;
 
-    // Merge the live station snapshot into the persistent accumulator.
-    for (const auto& s : g_reporter->getStations())
+    const auto now = std::chrono::steady_clock::now();
+
+    // Merge the live station snapshot into the persistent accumulator,
+    // noting new SNR reports and message changes for row highlighting.
+    // Stations seen for the first time aren't highlighted, so the whole
+    // list doesn't light up when we connect.
+    for (const auto& s : g_reporter->getStations()) {
+        auto prev = s_seen_stations.find(s.sid);
+        if (prev != s_seen_stations.end()) {
+            if (!s.rx_last_update.empty() &&
+                s.rx_last_update != prev->second.rx_last_update) {
+                s_rx_highlight_until[s.sid] =
+                    now + std::chrono::milliseconds(REPORTER_RX_HIGHLIGHT_MS);
+                schedule_reporter_refresh(REPORTER_RX_HIGHLIGHT_MS);
+            }
+            if (!s.message.empty() && s.message != prev->second.message) {
+                s_msg_highlight_until[s.sid] =
+                    now + std::chrono::milliseconds(REPORTER_MSG_HIGHLIGHT_MS);
+                schedule_reporter_refresh(REPORTER_MSG_HIGHLIGHT_MS);
+            }
+        }
         s_seen_stations[s.sid] = s;
+    }
+
+    auto highlighted = [now](const std::map<std::string,
+                                 std::chrono::steady_clock::time_point>& m,
+                             const std::string& sid) {
+        auto it = m.find(sid);
+        return it != m.end() && now < it->second;
+    };
 
     // Read filter text (upper-cased for case-insensitive match).
     std::string filter;
@@ -164,6 +208,13 @@ void refresh_reporter_list()
         if (!s.rx_last_update.empty())
             std::snprintf(snr_buf, sizeof snr_buf, "%.0f dB", s.rx_snr);
 
+        // Row colour: TX (red) > new SNR report (green) > new message (yellow).
+        const char* bg = nullptr;
+        if (s.transmitting)                                 bg = "#ff8080";
+        else if (highlighted(s_rx_highlight_until,  s.sid)) bg = "#90ee90";
+        else if (highlighted(s_msg_highlight_until, s.sid)) bg = "#ffff80";
+        const char* fg = bg ? "black" : nullptr;   // stay readable on dark themes
+
         GtkTreeIter iter;
         gtk_list_store_append(store, &iter);
         gtk_list_store_set(store, &iter,
@@ -176,6 +227,8 @@ void refresh_reporter_list()
             6, snr_buf,
             7, s.message.c_str(),
             8, s.sid.c_str(),
+            9, bg,
+            10, fg,
             -1);
         ++count;
     }

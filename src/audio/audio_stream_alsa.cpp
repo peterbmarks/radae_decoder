@@ -178,3 +178,10 @@ AudioError AudioStream::write(const void* buffer, unsigned long frames)
     }
     return AUDIO_OK;
 }
+
+long AudioStream::read_available()
+{
+    if (!impl_ || !impl_->pcm) return -1;
+    snd_pcm_sframes_t n = snd_pcm_avail(impl_->pcm);
+    return n < 0 ? -1 : static_cast<long>(n);
+}

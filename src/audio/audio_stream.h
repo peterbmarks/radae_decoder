@@ -59,6 +59,10 @@ public:
     AudioError read(void* buffer, unsigned long frames);
     AudioError write(const void* buffer, unsigned long frames);
 
+    /* Capture only: frames already buffered and readable without blocking
+       (i.e. how far behind real time the reader is), or -1 if unknown. */
+    long read_available();
+
     bool is_open() const { return impl_ != nullptr; }
 
 private:

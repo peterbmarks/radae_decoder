@@ -288,6 +288,9 @@ void RadaeEncoder::processing_loop()
     constexpr int READ_FRAMES = 160;
     std::vector<int16_t> capture_buf(READ_FRAMES);
 
+    /* max unread mic audio before we discard it (~200 ms; > one modem frame) */
+    const long MAX_CAPTURE_BACKLOG = static_cast<long>(rate_in_) / 5;
+
     /* accumulator for 16 kHz mono float samples */
     std::vector<float> acc_16k;
     acc_16k.reserve(1024);
@@ -315,6 +318,23 @@ void RadaeEncoder::processing_loop()
         while (static_cast<int>(acc_16k.size()) < LPCNET_FRAME_SIZE &&
                running_.load(std::memory_order_relaxed))
         {
+            /* ── drop stale mic audio ──────────────────────────────────────
+             *    Capture and playback share this thread, so whenever the
+             *    playback write blocks (or the mic and radio sound cards'
+             *    clocks drift apart) unread mic audio piles up in the capture
+             *    buffer.  Left alone, that backlog is never recovered: the
+             *    input meter and the transmitted speech both run seconds
+             *    behind real time.  Discard it so we always encode fresh audio. */
+            long backlog = stream_in_.read_available();
+            if (backlog > MAX_CAPTURE_BACKLOG) {
+                long to_drop = backlog - READ_FRAMES;
+                fprintf(stderr, "TX: dropping %ld ms of stale mic audio\n",
+                        to_drop * 1000 / static_cast<long>(rate_in_));
+                while (to_drop >= READ_FRAMES &&
+                       stream_in_.read(capture_buf.data(), READ_FRAMES) != AUDIO_ERROR)
+                    to_drop -= READ_FRAMES;
+            }
+
             AudioError err = stream_in_.read(capture_buf.data(), READ_FRAMES);
             if (err == AUDIO_ERROR) {
                 if (!running_.load(std::memory_order_relaxed)) break;

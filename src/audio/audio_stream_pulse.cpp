@@ -111,7 +111,8 @@ std::vector<AudioDevice> audio_enumerate_playback_devices()
 /* ── AudioStream implementation via pa_simple ───────────────────────────── */
 
 struct AudioStream::Impl {
-    pa_simple* simple = nullptr;
+    pa_simple*   simple      = nullptr;
+    unsigned int sample_rate = 0;
 };
 
 AudioStream::AudioStream()  = default;
@@ -165,7 +166,8 @@ bool AudioStream::open(const std::string& device_id, bool is_input,
     if (!s) return false;
 
     impl_ = new Impl;
-    impl_->simple = s;
+    impl_->simple      = s;
+    impl_->sample_rate = sample_rate;
     return true;
 }
 
@@ -217,4 +219,16 @@ AudioError AudioStream::write(const void* buffer, unsigned long frames)
     if (pa_simple_write(impl_->simple, buffer, bytes, &error) < 0)
         return AUDIO_ERROR;
     return AUDIO_OK;
+}
+
+long AudioStream::read_available()
+{
+    if (!impl_ || !impl_->simple) return -1;
+
+    /* For a record stream this is the audio captured but not yet read
+       (plus a little device latency). */
+    int error = 0;
+    pa_usec_t usec = pa_simple_get_latency(impl_->simple, &error);
+    if (usec == static_cast<pa_usec_t>(-1)) return -1;
+    return static_cast<long>(usec * impl_->sample_rate / 1000000ULL);
 }

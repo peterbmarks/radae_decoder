@@ -135,3 +135,10 @@ AudioError AudioStream::write(const void* buffer, unsigned long frames)
     if (err == paNoError) return AUDIO_OK;
     return AUDIO_ERROR;
 }
+
+long AudioStream::read_available()
+{
+    if (!impl_) return -1;
+    signed long n = Pa_GetStreamReadAvailable(impl_->stream);
+    return n < 0 ? -1 : static_cast<long>(n);
+}

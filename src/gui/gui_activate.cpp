@@ -175,26 +175,28 @@ void activate(GtkApplication* app, gpointer /*data*/)
         gtk_box_pack_start(GTK_BOX(rep_vbox), filter_hbox, FALSE, FALSE, 0);
 
         /* ── tree view ──────────────────────────────────────────────── */
-        // Columns 0-7: Callsign, Grid, Frequency, Mode, TX, RX'd, SNR, Message
-        // Column 8 (hidden): SID — used as the row key for incremental updates
-        // Columns 9-10 (hidden): row background / foreground colour (NULL = theme default)
-        GtkListStore* store = gtk_list_store_new(11,
+        // Columns 0-8: Callsign, Grid, Frequency, Mode, TX, RX'd, SNR, Message, Version
+        // Column 9 (hidden): SID — used as the row key for incremental updates
+        // Columns 10-11 (hidden): row background / foreground colour (NULL = theme default)
+        GtkListStore* store = gtk_list_store_new(12,
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
-            G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
+            G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 
         g_reporter_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
         g_object_unref(store);
 
         const char* col_titles[] = {
             "Callsign", "Grid", "Frequency", "Mode",
-            "TX", "RX'd", "SNR", "Message"
+            "TX", "RX'd", "SNR", "Message", "Version"
         };
-        for (int i = 0; i < 8; ++i) {
+        // Display order (model column indices) — independent of the store layout
+        const int col_order[] = { 0, 6, 7, 8, 2, 3, 1, 4, 5 };
+        for (int i : col_order) {
             GtkCellRenderer*   r   = gtk_cell_renderer_text_new();
             GtkTreeViewColumn* col = gtk_tree_view_column_new_with_attributes(
                 col_titles[i], r, "text", i,
-                "cell-background", 9, "foreground", 10, nullptr);
+                "cell-background", 10, "foreground", 11, nullptr);
             gtk_tree_view_column_set_resizable(col, TRUE);
             gtk_tree_view_append_column(GTK_TREE_VIEW(g_reporter_view), col);
         }

@@ -226,9 +226,10 @@ void refresh_reporter_list()
             5, s.rx_callsign.c_str(),
             6, snr_buf,
             7, s.message.c_str(),
-            8, s.sid.c_str(),
-            9, bg,
-            10, fg,
+            8, s.version.c_str(),
+            9, s.sid.c_str(),
+            10, bg,
+            11, fg,
             -1);
         ++count;
     }

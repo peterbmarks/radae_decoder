@@ -313,7 +313,7 @@ void FreeDVReporter::onConnectionSuccessful(const std::string& /*data*/)
 
 void FreeDVReporter::onNewConnection(const std::string& data)
 {
-    std::cerr << "onNewConnection" << '\n';
+    //std::cerr << "onNewConnection" << '\n';
 
     if (data.empty()) return;
 

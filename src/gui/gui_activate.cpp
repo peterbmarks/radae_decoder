@@ -227,7 +227,7 @@ void activate(GtkApplication* app, gpointer /*data*/)
             "TX", "RX'd", "SNR", "Message", "Version"
         };
         // Display order (model column indices) — independent of the store layout
-        const int col_order[] = { 0, 6, 7, 8, 2, 3, 1, 4, 5 };
+        const int col_order[] = { 0, 6, 5, 7, 8, 2, 3, 1, 4 };
         for (int i : col_order) {
             GtkCellRenderer*   r   = gtk_cell_renderer_text_new();
             GtkTreeViewColumn* col = gtk_tree_view_column_new_with_attributes(

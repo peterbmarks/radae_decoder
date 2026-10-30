@@ -341,6 +341,25 @@ void activate(GtkApplication* app, gpointer /*data*/)
 
     gtk_box_pack_start(GTK_BOX(scontent), bpf_hbox, FALSE, FALSE, 0);
 
+    /* ── RADE V2 toggle row ─────────────────────────────────────────── */
+    GtkWidget* v2_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+
+    GtkWidget* v2_lbl = gtk_label_new("RADE V2:");
+    gtk_widget_set_size_request(v2_lbl, 50, -1);
+    gtk_label_set_xalign(GTK_LABEL(v2_lbl), 0.0);
+    gtk_box_pack_start(GTK_BOX(v2_hbox), v2_lbl, FALSE, FALSE, 0);
+
+    g_v2_switch = gtk_switch_new();
+    gtk_widget_set_tooltip_text(g_v2_switch,
+        "Use the RADE V2 waveform for receive and transmit (default V1).\n"
+        "V2 is pre-release and not compatible with V1 stations. "
+        "The callsign is not sent or decoded in V2.");
+    gtk_widget_set_valign(g_v2_switch, GTK_ALIGN_CENTER);
+    g_signal_connect(g_v2_switch, "state-set", G_CALLBACK(on_v2_switch_changed), NULL);
+    gtk_box_pack_start(GTK_BOX(v2_hbox), g_v2_switch, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(scontent), v2_hbox, FALSE, FALSE, 0);
+
     /* ── separator between Transceiver and Operator sections ───────── */
     gtk_box_pack_start(GTK_BOX(scontent),
                        gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);

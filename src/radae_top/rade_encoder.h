@@ -50,7 +50,12 @@ public:
     void set_bpf_enabled(bool en) { bpf_enabled_.store(en, std::memory_order_relaxed); }
     bool get_bpf_enabled() const  { return bpf_enabled_.load(std::memory_order_relaxed); }
 
-    /* EOO callsign (applied to rade_ immediately if open, stored for next open()) */
+    /* RADE V2 waveform (default V1); takes effect on the next open() */
+    void set_v2(bool v2) { v2_ = v2; }
+    bool is_v2() const   { return v2_; }
+
+    /* EOO callsign (applied to rade_ immediately if open, stored for next open()).
+       V1 only — V2 has no EOO data channel, so the callsign is not sent. */
     void set_callsign(const std::string& cs);
 
     /* recording (thread-safe) ----------------------------------------------- */
@@ -107,6 +112,8 @@ private:
     WavRecorder*       recorder_    = nullptr;
     std::mutex         recorder_mutex_;
 
+    /* ── RADE mode ───────────────────────────────────────────────────────── */
+    bool               v2_ = false;
     /* ── EOO callsign ────────────────────────────────────────────────────── */
     std::string        callsign_;
     void               apply_callsign();   // encode callsign_ → rade_tx_set_eoo_bits

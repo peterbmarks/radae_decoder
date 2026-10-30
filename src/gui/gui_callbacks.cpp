@@ -88,7 +88,7 @@ gboolean on_meter_tick(gpointer /*data*/)
             if (new_cs) g_last_rx_callsign = cs;
             const signed char snr = static_cast<signed char>(
                 std::clamp(g_decoder->snr_dB(), -128.0f, 127.0f));
-            g_reporter->addReceiveRecord(g_last_rx_callsign, kReporterMode,
+            g_reporter->addReceiveRecord(g_last_rx_callsign, reporter_mode(),
                                          rig_freq_hz(), snr);
             s_last_rx_report = now;
         }
@@ -247,6 +247,26 @@ gboolean on_bpf_switch_changed(GtkSwitch* sw, gboolean state, gpointer /*data*/)
     gtk_switch_set_state(sw, state);
     if (g_encoder)
         g_encoder->set_bpf_enabled(state);
+    return TRUE;
+}
+
+/* RADE V2 switch toggled: save, restart a running receiver in the new mode and
+   tell the reporter. A running transmitter keeps its mode until the next over. */
+gboolean on_v2_switch_changed(GtkSwitch* sw, gboolean state, gpointer /*data*/)
+{
+    gtk_switch_set_state(sw, state);
+    if (g_updating_combos) return TRUE;   // being restored from config
+    save_config();
+
+    if (g_decoder && g_decoder->is_running()) {
+        int in_idx  = gtk_combo_box_get_active(GTK_COMBO_BOX(g_input_combo));
+        int out_idx = gtk_combo_box_get_active(GTK_COMBO_BOX(g_output_combo));
+        if (in_idx >= 0 && out_idx >= 0)
+            start_decoder(in_idx, out_idx);
+    }
+
+    if (g_reporter && !(g_encoder && g_encoder->is_running()))
+        g_reporter->transmit(reporter_mode(), false);
     return TRUE;
 }
 

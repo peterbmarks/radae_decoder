@@ -12,6 +12,7 @@ RadaeEncoder*            g_encoder            = nullptr;
 AudioPassthrough*        g_passthrough        = nullptr;
 GtkWidget*               g_tx_switch          = nullptr;   // TX mode toggle
 GtkWidget*               g_bpf_switch         = nullptr;   // TX BPF toggle
+GtkWidget*               g_v2_switch          = nullptr;   // RADE V2 waveform toggle
 std::vector<AudioDevice> g_input_devices;
 std::vector<AudioDevice> g_output_devices;
 GtkWidget*               g_input_combo        = nullptr;   // input device selector

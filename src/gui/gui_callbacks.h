@@ -18,6 +18,7 @@ void on_gridsquare_changed(GtkEditable* e, gpointer data);
 /* Mode toggles */
 gboolean on_tx_switch_changed(GtkSwitch* sw, gboolean state, gpointer data);
 gboolean on_bpf_switch_changed(GtkSwitch* sw, gboolean state, gpointer data);
+gboolean on_v2_switch_changed(GtkSwitch* sw, gboolean state, gpointer data);
 
 /* Buttons */
 void on_record_clicked(GtkButton* btn, gpointer data);

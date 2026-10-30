@@ -12,10 +12,6 @@
 #include "../src/wav/wav_recorder.h"
 #include "../network/freedv_reporter.h"
 
-/* FreeDV mode name reported to FreeDV Reporter. Bump this when the protocol
-   version changes (e.g. to "RADEV2"). */
-inline constexpr const char* kReporterMode = "RADEV1";
-
 /* ── globals (single-window app) ────────────────────────────────────────── */
 
 extern RadaeDecoder*            g_decoder;
@@ -23,6 +19,7 @@ extern RadaeEncoder*            g_encoder;
 extern AudioPassthrough*        g_passthrough;
 extern GtkWidget*               g_tx_switch;       // TX mode toggle
 extern GtkWidget*               g_bpf_switch;      // TX BPF toggle
+extern GtkWidget*               g_v2_switch;       // RADE V2 waveform toggle
 extern std::vector<AudioDevice> g_input_devices;
 extern std::vector<AudioDevice> g_output_devices;
 extern GtkWidget*               g_input_combo;     // input device selector
@@ -64,3 +61,15 @@ extern GtkWidget*               g_reporter_view;      // GtkTreeView inside repo
 extern GtkWidget*               g_reporter_filter;    // callsign filter entry
 extern GtkWidget*               g_reporter_track_freq;// "Track Frequency" checkbox
 extern GtkWidget*               g_reporter_count_lbl; // "N stations" label
+
+/* True when the Settings "RADE V2" switch is on (default V1). */
+inline bool rade_v2_enabled()
+{
+    return g_v2_switch && gtk_switch_get_active(GTK_SWITCH(g_v2_switch));
+}
+
+/* FreeDV mode name reported to FreeDV Reporter for the selected waveform. */
+inline const char* reporter_mode()
+{
+    return rade_v2_enabled() ? "RADEV2" : "RADEV1";
+}

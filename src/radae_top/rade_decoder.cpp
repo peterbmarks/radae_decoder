@@ -235,7 +235,7 @@ bool RadaeDecoder::open(const std::string& input_hw_id,
      *  several seconds of stale buffered data.
      * ─────────────────────────────────────────────────────────────────── */
     rade_initialize();
-    rade_ = rade_open(nullptr, RADE_VERBOSE_0);
+    rade_ = rade_open(nullptr, RADE_VERBOSE_0 | (v2_ ? RADE_MODE_V2 : 0));
     if (!rade_) return false;
 
     /* ── FARGAN vocoder ─────────────────────────────────────────────── */
@@ -258,7 +258,8 @@ bool RadaeDecoder::open(const std::string& input_hw_id,
     /* ── Hanning window for FFT ─────────────────────────────────────── */
     for (int i = 0; i < FFT_SIZE; i++)
         fft_window_[i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * i / (FFT_SIZE - 1)));
-    std::memset(spectrum_mag_, 0, sizeof(spectrum_mag_));
+    /* blank until the first FFT (0 dB would paint the waterfall white) */
+    std::fill(std::begin(spectrum_mag_), std::end(spectrum_mag_), -200.0f);
 
     /* ── audio streams — opened LAST so PulseAudio starts buffering now ── */
     rate_in_ = RADE_FS;
@@ -314,7 +315,7 @@ bool RadaeDecoder::open_file(const std::string& wav_path,
 
     /* ── RADE receiver ──────────────────────────────────────────── */
     rade_initialize();
-    rade_ = rade_open(nullptr, RADE_VERBOSE_0);
+    rade_ = rade_open(nullptr, RADE_VERBOSE_0 | (v2_ ? RADE_MODE_V2 : 0));
     if (!rade_) {
         stream_out_.close();
         return false;
@@ -336,7 +337,8 @@ bool RadaeDecoder::open_file(const std::string& wav_path,
     /* ── Hanning window for FFT ─────────────────────────────────── */
     for (int i = 0; i < FFT_SIZE; i++)
         fft_window_[i] = 0.5f * (1.0f - std::cos(2.0f * static_cast<float>(M_PI) * i / (FFT_SIZE - 1)));
-    std::memset(spectrum_mag_, 0, sizeof(spectrum_mag_));
+    /* blank until the first FFT (0 dB would paint the waterfall white) */
+    std::fill(std::begin(spectrum_mag_), std::end(spectrum_mag_), -200.0f);
 
     file_mode_ = true;
     rate_in_ = RADE_FS;
@@ -505,6 +507,12 @@ void RadaeDecoder::processing_loop()
     bool was_synced = false;
     bool output_primed = false;
 
+    /* ring of recent input samples for the spectrum FFT; rade_nin() can be
+       much shorter than FFT_SIZE (V2 is ~160 samples), so span several calls */
+    float fft_ring[FFT_SIZE] = {};
+    int   fft_ring_pos  = 0;
+    int   fft_ring_fill = 0;
+
     /* Flush any audio that accumulated in the audio server buffer while the
        stream was being opened (or while we were transmitting).  Without this,
        switching TX→RX replays the backlog before delivering live audio, causing
@@ -573,11 +581,17 @@ void RadaeDecoder::processing_loop()
         if (!running_.load(std::memory_order_relaxed)) break;
 
         /* ── FFT spectrum of input 8 kHz audio ───────────────────────── */
-        if (static_cast<int>(acc_8k.size()) >= FFT_SIZE) {
+        for (int i = 0; i < nin; i++) {
+            fft_ring[fft_ring_pos] = acc_8k[static_cast<size_t>(i)];
+            fft_ring_pos = (fft_ring_pos + 1) % FFT_SIZE;
+        }
+        fft_ring_fill = std::min(FFT_SIZE, fft_ring_fill + nin);
+        if (fft_ring_fill >= FFT_SIZE) {
             std::complex<float> fft_buf[FFT_SIZE];
-            int offset = static_cast<int>(acc_8k.size()) - FFT_SIZE;
-            for (int i = 0; i < FFT_SIZE; i++)
-                fft_buf[i] = acc_8k[static_cast<size_t>(offset + i)] * fft_window_[i];
+            for (int i = 0; i < FFT_SIZE; i++) {
+                int idx = (fft_ring_pos + i) % FFT_SIZE;   // oldest-first ordering
+                fft_buf[i] = fft_ring[idx] * fft_window_[i];
+            }
 
             fft_radix2(fft_buf, FFT_SIZE);
 
@@ -615,10 +629,11 @@ void RadaeDecoder::processing_loop()
         /* ── RADE Rx ─────────────────────────────────────────────────── */
         int has_eoo = 0;
         int n_out = rade_rx(rade_, feat_buf.data(), &has_eoo,
-                            eoo_buf.data(), rx_buf.data());
+                            n_eoo_bits > 0 ? eoo_buf.data() : nullptr,
+                            rx_buf.data());
 
         /* decode EOO callsign if present */
-        if (has_eoo) {
+        if (has_eoo && n_eoo_bits > 0) {   /* V2 EOO carries no callsign */
             std::string callsign;
             if (eoo_decoder.decode(eoo_buf.data(), n_eoo_bits / 2, callsign)) {
                 {

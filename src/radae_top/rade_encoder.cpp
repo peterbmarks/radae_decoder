@@ -115,6 +115,7 @@ void RadaeEncoder::apply_callsign()
 {
     if (!rade_) return;
     int n = rade_n_eoo_bits(rade_);
+    if (n <= 0) return;   /* V2: no EOO data channel */
     std::vector<float> bits(static_cast<size_t>(n));
     EooCallsignDecoder enc;
     enc.encode(callsign_, bits.data(), n);
@@ -142,7 +143,7 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
 
     /* ── RADE transmitter ────────────────────────────────────────────── */
     rade_initialize();
-    rade_ = rade_open(nullptr, RADE_VERBOSE_0);
+    rade_ = rade_open(nullptr, RADE_VERBOSE_0 | (v2_ ? RADE_MODE_V2 : 0));
     if (!rade_) {
         stream_in_.close();
         stream_out_.close();

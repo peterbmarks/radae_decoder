@@ -283,7 +283,7 @@ void reporter_restart()
 
     /* Announce our mode before connecting so the server reports it from the
        start, even if we never transmit during this session. */
-    g_reporter->transmit(kReporterMode, false);
+    g_reporter->transmit(reporter_mode(), false);
 
     g_reporter->connect();
 
@@ -325,7 +325,7 @@ void stop_all()
 
     /* Tell the reporter we stopped transmitting. */
     if (g_reporter && was_transmitting)
-        g_reporter->transmit(kReporterMode, false);
+        g_reporter->transmit(reporter_mode(), false);
 }
 
 void start_decoder(int in_idx, int out_idx)
@@ -337,6 +337,7 @@ void start_decoder(int in_idx, int out_idx)
     stop_all();
 
     if (!g_decoder) g_decoder = new RadaeDecoder();
+    g_decoder->set_v2(rade_v2_enabled());
 
     if (!g_decoder->open(g_input_devices[in_idx].hw_id,
                          g_output_devices[out_idx].hw_id)) {
@@ -361,6 +362,7 @@ void start_encoder(int mic_idx, int radio_idx)
     stop_all();
 
     if (!g_encoder) g_encoder = new RadaeEncoder();
+    g_encoder->set_v2(rade_v2_enabled());
 
     if (!g_encoder->open(g_tx_input_devices[mic_idx].hw_id,
                          g_tx_output_devices[radio_idx].hw_id)) {
@@ -378,7 +380,7 @@ void start_encoder(int mic_idx, int radio_idx)
     g_encoder->start();
     rig_control_set_ptt_async(true);  /* key the rig if connected */
     if (g_reporter)
-        g_reporter->transmit(kReporterMode, true);
+        g_reporter->transmit(reporter_mode(), true);
     if (g_recording && g_recorder)
         g_encoder->set_recorder(g_recorder);
     set_btn_state(true);
@@ -396,6 +398,7 @@ void start_decoder_file(const std::string& wav_path, int out_idx)
     stop_all();
 
     if (!g_decoder) g_decoder = new RadaeDecoder();
+    g_decoder->set_v2(rade_v2_enabled());
 
     if (!g_decoder->open_file(wav_path,
                                g_output_devices[static_cast<size_t>(out_idx)].hw_id)) {

@@ -32,6 +32,10 @@ public:
     void start();
     void stop();
 
+    /* RADE V2 waveform (default V1); takes effect on the next open() -------- */
+    void set_v2(bool v2) { v2_ = v2; }
+    bool is_v2() const   { return v2_; }
+
     /* status queries (thread-safe) ------------------------------------------ */
     bool  is_running()            const { return running_.load(std::memory_order_relaxed); }
     bool  is_synced()             const { return synced_.load(std::memory_order_relaxed); }
@@ -68,6 +72,7 @@ private:
 
     /* ── RADE receiver (opaque) ───────────────────────────────────────────── */
     struct rade*  rade_     = nullptr;
+    bool          v2_       = false;
 
     /* ── FARGAN vocoder (opaque void* to avoid C header in .h) ────────────── */
     void*         fargan_   = nullptr;

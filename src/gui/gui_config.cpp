@@ -46,6 +46,7 @@ void save_config()
         f << "tx_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_tx_slider))) << '\n';
         f << "mic_level=" << static_cast<int>(gtk_range_get_value(GTK_RANGE(g_mic_slider))) << '\n';
         f << "bpf_enabled=" << (g_bpf_switch && gtk_switch_get_active(GTK_SWITCH(g_bpf_switch)) ? 1 : 0) << '\n';
+        f << "rade_v2=" << (rade_v2_enabled() ? 1 : 0) << '\n';
         const char* cs = g_callsign_entry ? gtk_entry_get_text(GTK_ENTRY(g_callsign_entry)) : "";
         f << "callsign=" << cs << '\n';
         const char* gs = g_gridsquare_entry ? gtk_entry_get_text(GTK_ENTRY(g_gridsquare_entry)) : "";
@@ -80,6 +81,7 @@ bool restore_config()
     int saved_tx_level = -1;
     int saved_mic_level = -1;
     int saved_bpf_enabled = -1;
+    int saved_rade_v2 = -1;
     int saved_sort_col = -1;
     int saved_sort_order = 0;
     std::string line;
@@ -98,6 +100,8 @@ bool restore_config()
             saved_mic_level = std::stoi(line.substr(10));
         else if (line.compare(0, 12, "bpf_enabled=") == 0)
             saved_bpf_enabled = std::stoi(line.substr(12));
+        else if (line.compare(0, 8, "rade_v2=") == 0)
+            saved_rade_v2 = std::atoi(line.c_str() + 8);
         else if (line.compare(0, 9, "callsign=") == 0)
             saved_callsign = line.substr(9);
         else if (line.compare(0, 11, "gridsquare=") == 0)
@@ -122,6 +126,15 @@ bool restore_config()
             GTK_TREE_SORTABLE(gtk_tree_view_get_model(GTK_TREE_VIEW(g_reporter_view))),
             saved_sort_col,
             saved_sort_order ? GTK_SORT_DESCENDING : GTK_SORT_ASCENDING);
+
+    /* Restore the RADE mode before any early return, and before the caller
+       starts the decoder. g_updating_combos keeps on_v2_switch_changed from
+       saving a half-loaded config. */
+    if (saved_rade_v2 >= 0 && g_v2_switch) {
+        g_updating_combos = true;
+        gtk_switch_set_active(GTK_SWITCH(g_v2_switch), saved_rade_v2 != 0);
+        g_updating_combos = false;
+    }
 
     /* Restore rig settings unconditionally — must happen before any early return. */
     rig_config_restore(saved_rig_model_id, saved_rig_port, saved_rig_baud);

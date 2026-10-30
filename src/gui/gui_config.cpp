@@ -2,6 +2,7 @@
 #include "gui_app_state.h"
 #include "rig_control.h"
 
+#include <cstdlib>
 #include <fstream>
 #include <sys/stat.h>
 
@@ -54,6 +55,17 @@ void save_config()
         f << "rig_baud="     << rig_config_get_baud()     << '\n';
         const char* msg = g_message_entry ? gtk_entry_get_text(GTK_ENTRY(g_message_entry)) : "";
         f << "reporter_message=" << (msg ? msg : "") << '\n';
+
+        gint sort_col = -1;
+        GtkSortType sort_order = GTK_SORT_ASCENDING;
+        if (g_reporter_view) {
+            GtkTreeSortable* st = GTK_TREE_SORTABLE(
+                gtk_tree_view_get_model(GTK_TREE_VIEW(g_reporter_view)));
+            if (!gtk_tree_sortable_get_sort_column_id(st, &sort_col, &sort_order))
+                sort_col = -1;   // unsorted
+        }
+        f << "reporter_sort_col="   << sort_col << '\n';
+        f << "reporter_sort_order=" << (sort_order == GTK_SORT_DESCENDING ? 1 : 0) << '\n';
     }
 }
 
@@ -68,6 +80,8 @@ bool restore_config()
     int saved_tx_level = -1;
     int saved_mic_level = -1;
     int saved_bpf_enabled = -1;
+    int saved_sort_col = -1;
+    int saved_sort_order = 0;
     std::string line;
     while (std::getline(f, line)) {
         if (line.compare(0, 6, "input=") == 0)
@@ -96,7 +110,18 @@ bool restore_config()
             saved_rig_baud = line.substr(9);
         else if (line.compare(0, 17, "reporter_message=") == 0)
             saved_reporter_message = line.substr(17);
+        else if (line.compare(0, 18, "reporter_sort_col=") == 0)
+            saved_sort_col = std::atoi(line.c_str() + 18);
+        else if (line.compare(0, 20, "reporter_sort_order=") == 0)
+            saved_sort_order = std::atoi(line.c_str() + 20);
     }
+
+    /* Restore reporter list sort (columns 0-8 are the visible ones). */
+    if (g_reporter_view && saved_sort_col >= 0 && saved_sort_col <= 8)
+        gtk_tree_sortable_set_sort_column_id(
+            GTK_TREE_SORTABLE(gtk_tree_view_get_model(GTK_TREE_VIEW(g_reporter_view))),
+            saved_sort_col,
+            saved_sort_order ? GTK_SORT_DESCENDING : GTK_SORT_ASCENDING);
 
     /* Restore rig settings unconditionally — must happen before any early return. */
     rig_config_restore(saved_rig_model_id, saved_rig_port, saved_rig_baud);

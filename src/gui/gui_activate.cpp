@@ -8,6 +8,36 @@
 #include "waterfall_widget.h"
 #include "rig_control.h"
 
+#include <cstdlib>
+
+/* Sort reporter rows numerically on a text column such as "7.177 MHz" or
+   "12 dB". Cells with no leading number (empty, "—") sort below all numbers. */
+static gint reporter_numeric_sort(GtkTreeModel* model, GtkTreeIter* a,
+                                  GtkTreeIter* b, gpointer data)
+{
+    const int col = GPOINTER_TO_INT(data);
+    gchar* sa = nullptr;
+    gchar* sb = nullptr;
+    gtk_tree_model_get(model, a, col, &sa, -1);
+    gtk_tree_model_get(model, b, col, &sb, -1);
+
+    auto parse = [](const gchar* s, double& v) {
+        if (!s) return false;
+        char* end = nullptr;
+        v = std::strtod(s, &end);
+        return end != s;
+    };
+    double va = 0.0, vb = 0.0;
+    const bool ha = parse(sa, va);
+    const bool hb = parse(sb, vb);
+    g_free(sa);
+    g_free(sb);
+
+    if (ha != hb) return ha ? 1 : -1;
+    if (!ha)      return 0;
+    return (va > vb) - (va < vb);
+}
+
 /* ── UI construction ────────────────────────────────────────────────────── */
 
 void activate(GtkApplication* app, gpointer /*data*/)
@@ -183,6 +213,12 @@ void activate(GtkApplication* app, gpointer /*data*/)
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING,
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 
+        // Frequency (2) and SNR (6) hold text with units; compare them as numbers.
+        gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(store), 2,
+            reporter_numeric_sort, GINT_TO_POINTER(2), nullptr);
+        gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(store), 6,
+            reporter_numeric_sort, GINT_TO_POINTER(6), nullptr);
+
         g_reporter_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
         g_object_unref(store);
 
@@ -198,6 +234,7 @@ void activate(GtkApplication* app, gpointer /*data*/)
                 col_titles[i], r, "text", i,
                 "cell-background", 10, "foreground", 11, nullptr);
             gtk_tree_view_column_set_resizable(col, TRUE);
+            gtk_tree_view_column_set_sort_column_id(col, i);   // click header to sort
             gtk_tree_view_append_column(GTK_TREE_VIEW(g_reporter_view), col);
         }
 
@@ -532,6 +569,13 @@ void activate(GtkApplication* app, gpointer /*data*/)
         if (in_idx >= 0 && out_idx >= 0)
             start_decoder(in_idx, out_idx);
     }
+
+    /* Save the reporter sort whenever a column header is clicked. Connected
+       after restore_config() so restoring the sort doesn't save a half-loaded config. */
+    g_signal_connect(gtk_tree_view_get_model(GTK_TREE_VIEW(g_reporter_view)),
+                     "sort-column-changed",
+                     G_CALLBACK(+[](GtkTreeSortable*, gpointer) { save_config(); }),
+                     nullptr);
 
     /* ── auto-connect to rig if settings were saved ─────────────── */
     rig_auto_connect(GTK_WINDOW(window));

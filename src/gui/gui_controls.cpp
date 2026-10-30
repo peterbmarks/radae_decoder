@@ -258,7 +258,7 @@ void reporter_restart()
                    ? gtk_entry_get_text(GTK_ENTRY(g_gridsquare_entry)) : "";
 
     // writeOnly=false so we receive station updates from the server.
-    g_reporter = new FreeDVReporter(cs ? cs : "", gs ? gs : "", "RADAEV1c",
+    g_reporter = new FreeDVReporter(cs ? cs : "", gs ? gs : "", "RADAE GUI Linux",
                                     /*rxOnly=*/false, /*writeOnly=*/false);
 
     g_reporter->setStationUpdateCallback([]() {

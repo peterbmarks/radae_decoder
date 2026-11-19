@@ -23,6 +23,19 @@ else
     echo "$APPDIR does not exist."
 fi
 
+# uutils coreutils cp (the Rust cp shipped as /usr/bin/cp on newer Ubuntu)
+# wrongly fails "cp DIR --archive --parents" with "are the same file", which
+# breaks linuxdeploy-plugin-gtk.sh while copying the GLib schemas.  If GNU cp
+# is available as gnucp, put it first on PATH as "cp" for this script only.
+if command -v gnucp >/dev/null 2>&1 && ! cp --version 2>/dev/null | grep -q "GNU coreutils"; then
+    SYSTEM_CP="$(cp --version 2>/dev/null | head -1)"
+    CP_SHIM_DIR="$(mktemp -d)"
+    trap 'rm -rf "$CP_SHIM_DIR"' EXIT
+    ln -s "$(command -v gnucp)" "$CP_SHIM_DIR/cp"
+    export PATH="$CP_SHIM_DIR:$PATH"
+    echo "Using GNU cp (gnucp) instead of ${SYSTEM_CP:-system cp}"
+fi
+
 echo "Bundle dependencies..."
 if test -f linuxdeploy-${MACH_ARCH}.AppImage; then
   echo "linuxdeploy exists"

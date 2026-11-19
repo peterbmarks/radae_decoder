@@ -13,6 +13,36 @@ set(OPUS_URL https://github.com/xiph/opus/archive/940d4e5af64351ca8ba8390df3f555
 endif (NOT DEFINED OPUS_URL)
 
 include(ExternalProject)
+
+# RADE V2 needs the opus-nnet patches (MAX_CONV_INPUTS_ALL raised to 2048);
+# without them V2 receive aborts in compute_generic_conv1d() as soon as it
+# syncs.  ExternalProject only runs PATCH_COMMAND once, so an Opus tree that
+# was built without the patch stays broken.  Detect that here, patch it and
+# drop the build stamps so Opus is rebuilt.
+function(rade_fix_opus_patch src_dir stamp_dir target)
+    if(NOT EXISTS "${src_dir}/dnn/nnet.c")
+        return()   # not downloaded yet: PATCH_COMMAND will handle it
+    endif()
+    file(STRINGS "${src_dir}/dnn/nnet.c" _patched REGEX "define MAX_CONV_INPUTS_ALL 2048")
+    if(_patched)
+        return()
+    endif()
+    message(STATUS "Opus in ${src_dir} lacks the RADE nnet patch, applying it")
+    execute_process(
+        COMMAND patch --forward dnn/nnet.c -i ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff
+        WORKING_DIRECTORY "${src_dir}"
+        RESULT_VARIABLE _rc)
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "Failed to apply opus-nnet.c.diff to ${src_dir}; "
+                            "delete ${CMAKE_SOURCE_DIR}/.cache/opus and re-run cmake")
+    endif()
+    file(REMOVE "${stamp_dir}/${target}-build" "${stamp_dir}/${target}-install"
+                "${stamp_dir}/${target}-done")
+endfunction()
+
+rade_fix_opus_patch(${CMAKE_SOURCE_DIR}/.cache/opus/src     ${CMAKE_SOURCE_DIR}/.cache/opus/stamp     build_opus)
+rade_fix_opus_patch(${CMAKE_SOURCE_DIR}/.cache/opus/src-x86 ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-x86 build_opus_x86)
+rade_fix_opus_patch(${CMAKE_SOURCE_DIR}/.cache/opus/src-arm ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-arm build_opus_arm)
 if(APPLE AND BUILD_OSX_UNIVERSAL)
 # Opus ./configure doesn't behave properly when built as a universal binary;
 # build it twice and use lipo to create a universal libopus.a instead.
@@ -22,7 +52,7 @@ ExternalProject_Add(build_opus_x86
     SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src-x86
     STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-x86
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true; grep -q MAX_CONV_INPUTS_ALL.2048 dnn/nnet.c"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=x86_64-apple-darwin --target=x86_64-apple-darwin CFLAGS=-arch\ x86_64\ -O2\ -mmacosx-version-min=10.11
     BUILD_COMMAND make
     INSTALL_COMMAND ""
@@ -34,7 +64,7 @@ ExternalProject_Add(build_opus_arm
     SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src-arm
     STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp-arm
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true; grep -q MAX_CONV_INPUTS_ALL.2048 dnn/nnet.c"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND} --host=aarch64-apple-darwin --target=aarch64-apple-darwin CFLAGS=-arch\ arm64\ -O2\ -mmacosx-version-min=10.11
     BUILD_COMMAND make
     INSTALL_COMMAND ""
@@ -73,7 +103,7 @@ ExternalProject_Add(build_opus
     SOURCE_DIR   ${CMAKE_SOURCE_DIR}/.cache/opus/src
     STAMP_DIR    ${CMAKE_SOURCE_DIR}/.cache/opus/stamp
     BUILD_IN_SOURCE 1
-    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true"
+    PATCH_COMMAND sh -c "patch --forward dnn/nnet.h < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.h.diff || true; patch --forward dnn/nnet.c < ${CMAKE_SOURCE_DIR}/extern/rade_c/src/opus-nnet.c.diff || true; grep -q MAX_CONV_INPUTS_ALL.2048 dnn/nnet.c"
     CONFIGURE_COMMAND ${CONFIGURE_COMMAND}
     BUILD_COMMAND make
     INSTALL_COMMAND ""

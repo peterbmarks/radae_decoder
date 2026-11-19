@@ -132,30 +132,46 @@ gboolean on_meter_tick(gpointer /*data*/)
     }
 
     /* update status with sync info */
-    if (synced) {
-        if (cs.empty()) {
-            std::snprintf(buf, sizeof buf,
-                          "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz",
-                          static_cast<double>(g_decoder->snr_dB()),
-                          static_cast<double>(g_decoder->freq_offset()));
-        } else {
-            std::snprintf(buf, sizeof buf,
-                          "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz  Last call: %s",
-                          static_cast<double>(g_decoder->snr_dB()),
-                          static_cast<double>(g_decoder->freq_offset()),
-                          cs.c_str());
+    std::string extra;   // V2 clock offset / tuning hint
+    if (g_decoder->is_v2()) {
+        if (synced) {
+            const float ppm = g_decoder->clock_offset_ppm();
+            char tmp[64];
+            std::snprintf(tmp, sizeof tmp, "  Clock: %+.0f ppm%s",
+                          static_cast<double>(ppm),
+                          std::fabs(ppm) > 125.0f ? " (out of spec!)" : "");
+            extra = tmp;
+        } else if (int mt = g_decoder->mistune()) {
+            /* Signal more than 31.25 Hz off: V2 won't sync.  On USB a signal
+               that is too high in audio frequency is fixed by tuning up; on
+               LSB by tuning down.  Without CAT we only know the direction. */
+            const std::string mode = rig_get_current_mode();
+            const bool lsb = mode.find("LSB") != std::string::npos;
+            const bool usb = !lsb && mode.find("USB") != std::string::npos;
+            if (usb || lsb) {
+                const bool tune_up = (mt > 0) != lsb;
+                extra = tune_up ? "  Mistuned \xe2\x80\x94 tune UP" : "  Mistuned \xe2\x80\x94 tune DOWN";
+            } else {
+                extra = mt > 0 ? "  Mistuned \xe2\x80\x94 signal too high in frequency"
+                               : "  Mistuned \xe2\x80\x94 signal too low in frequency";
+            }
         }
-        set_status(buf);
-    } else {
-        if (cs.empty()) {
-            std::snprintf(buf, sizeof buf,
-                          "Searching for signal\xe2\x80\xa6");
-        } else {
-            std::snprintf(buf, sizeof buf,
-                          "Searching for signal\xe2\x80\xa6 Last call: %s", cs.c_str());
-        }
-        set_status(buf);
     }
+
+    if (synced) {
+        std::snprintf(buf, sizeof buf,
+                      "Synced \xe2\x80\x94 SNR: %.0f dB  Freq: %+.1f Hz%s%s%s",
+                      static_cast<double>(g_decoder->snr_dB()),
+                      static_cast<double>(g_decoder->freq_offset()),
+                      extra.c_str(),
+                      cs.empty() ? "" : "  Last call: ", cs.c_str());
+    } else {
+        std::snprintf(buf, sizeof buf,
+                      "Searching for signal\xe2\x80\xa6%s%s%s",
+                      extra.c_str(),
+                      cs.empty() ? "" : " Last call: ", cs.c_str());
+    }
+    set_status(buf);
 
     return TRUE;
 }

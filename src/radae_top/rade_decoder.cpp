@@ -364,6 +364,8 @@ void RadaeDecoder::close()
     synced_       = false;
     snr_dB_       = 0.0f;
     freq_offset_  = 0.0f;
+    mistune_      = 0;
+    clock_ppm_    = 0.0f;
     input_level_  = 0.0f;
     output_level_ = 0.0f;
 
@@ -391,6 +393,7 @@ void RadaeDecoder::stop()
     input_level_  = 0.0f;
     output_level_ = 0.0f;
     synced_       = false;
+    mistune_      = 0;
 }
 
 /* ── streaming Hilbert transform ─────────────────────────────────────
@@ -669,6 +672,9 @@ void RadaeDecoder::processing_loop()
             freq_offset_.store(rade_freq_offset(rade_),
                                std::memory_order_relaxed);
         }
+        /* V2 diagnostics (both return 0 for V1) */
+        mistune_.store(rade_mistune(rade_), std::memory_order_relaxed);
+        clock_ppm_.store(rade_clock_offset_ppm(rade_), std::memory_order_relaxed);
 
         /* handle sync transitions */
         if (was_synced && !now_synced) {

@@ -342,12 +342,26 @@ int run_receive_mode(const Config& config) {
         float input_level = decoder.get_input_level();
         float output_level = decoder.get_output_level_left();
 
+        /* V2 only: clock offset while synced, tuning hint while mistuned */
+        char v2_info[64] = "";
+        if (decoder.is_v2()) {
+            int mt = decoder.mistune();
+            if (synced)
+                snprintf(v2_info, sizeof v2_info, "  Clock: %+.0f ppm%s",
+                         decoder.clock_offset_ppm(),
+                         fabsf(decoder.clock_offset_ppm()) > 125.0f ? " (out of spec)" : "");
+            else if (mt)
+                snprintf(v2_info, sizeof v2_info, "  MISTUNED: signal too %s",
+                         mt > 0 ? "high" : "low");
+        }
+
         fprintf(stderr,
                 "%s SNR: %.1f dB  Freq: %+.1f Hz  "
-                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)\n",
+                "In: %3d%% (%3.0f dBFS)  Out: %3d%% (%3.0f dBFS)%s\n",
                 synced ? "SYNC" : "----", snr, freq_offset,
                 level_percent(input_level),  level_dbfs(input_level),
-                level_percent(output_level), level_dbfs(output_level));
+                level_percent(output_level), level_dbfs(output_level),
+                v2_info);
         fflush(stderr);
     }
     fprintf(stderr, "\n");

@@ -41,6 +41,13 @@ public:
     bool  is_synced()             const { return synced_.load(std::memory_order_relaxed); }
     float snr_dB()                const { return snr_dB_.load(std::memory_order_relaxed); }
     float freq_offset()           const { return freq_offset_.load(std::memory_order_relaxed); }
+    /* V2 only (0 for V1): tuning indicator while the receiver refuses to sync
+       because the signal is more than 31.25 Hz off: +1 signal too high in audio
+       frequency, -1 too low, 0 no indication. */
+    int   mistune()               const { return mistune_.load(std::memory_order_relaxed); }
+    /* V2 only (0 for V1): Tx/Rx sample clock offset in ppm (both stations
+       combined), settles ~30 s after sync, held after sync is lost. */
+    float clock_offset_ppm()      const { return clock_ppm_.load(std::memory_order_relaxed); }
     float get_input_level()       const { return input_level_.load(std::memory_order_relaxed); }
     float get_output_level_left() const { return output_level_.load(std::memory_order_relaxed); }
     float get_output_level_right()const { return output_level_.load(std::memory_order_relaxed); } // mono
@@ -117,6 +124,8 @@ private:
     std::atomic<bool>  synced_      {false};
     std::atomic<float> snr_dB_      {0.0f};
     std::atomic<float> freq_offset_ {0.0f};
+    std::atomic<int>   mistune_     {0};
+    std::atomic<float> clock_ppm_   {0.0f};
     std::atomic<float> input_level_ {0.0f};
     std::atomic<float> output_level_{0.0f};
 

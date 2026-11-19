@@ -65,7 +65,15 @@ public:
 
     bool is_open() const { return impl_ != nullptr; }
 
+    /* Playback only; call before open().  When set, the stream must play on
+       exactly the requested device: if the audio server cannot use it (or
+       later moves the stream elsewhere, or the device stops taking audio),
+       open()/write() fail instead of silently falling back to another output.
+       Currently honoured by the PulseAudio backend only. */
+    void set_no_fallback(bool on) { no_fallback_ = on; }
+
 private:
     struct Impl;
     Impl* impl_ = nullptr;
+    bool  no_fallback_ = false;
 };

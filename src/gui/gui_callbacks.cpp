@@ -32,6 +32,14 @@ gboolean on_meter_tick(gpointer /*data*/)
         }
     }
 
+    /* ── TX stopped itself: radio audio output failed ───────────────── */
+    if (g_encoder && g_encoder->output_failed()) {
+        stop_all();   // releases PTT, removes this timer
+        set_status("TX stopped: audio output to radio failed "
+                   "(device unavailable or out of USB bandwidth).");
+        return FALSE;
+    }
+
     /* ── TX mode ─────────────────────────────────────────────────────── */
     if (g_encoder && g_encoder->is_running()) {
         if (g_meter_in)

@@ -40,6 +40,10 @@ public:
     float get_input_level()  const { return input_level_.load(std::memory_order_relaxed); }
     float get_output_level() const { return output_level_.load(std::memory_order_relaxed); }
 
+    /* true if TX stopped itself because the radio audio output failed
+       (device unavailable, moved to another output, or stopped taking audio) */
+    bool  output_failed()    const { return output_failed_.load(std::memory_order_relaxed); }
+
     /* TX level controls (thread-safe) --------------------------------------- */
     void  set_tx_scale(float s)  { tx_scale_.store(s, std::memory_order_relaxed); }
     float get_tx_scale() const   { return tx_scale_.load(std::memory_order_relaxed); }
@@ -99,6 +103,7 @@ private:
     std::atomic<float> tx_scale_     {16384.0f};
     std::atomic<float> mic_gain_     {1.0f};
     std::atomic<bool>  bpf_enabled_  {false};
+    std::atomic<bool>  output_failed_{false};
 
     /* ── TX output bandpass filter ───────────────────────────────────────── */
     rade_bpf           bpf_;

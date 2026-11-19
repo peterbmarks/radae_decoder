@@ -136,6 +136,10 @@ bool RadaeEncoder::open(const std::string& mic_hw_id,
 
     /* ── audio playback (radio, 8 kHz) ───────────────────────────────── */
     rate_out_ = RADE_FS;
+    output_failed_ = false;
+    /* TX audio must reach the radio and nowhere else: never let the audio
+       server fall back to another output (e.g. the speakers). */
+    stream_out_.set_no_fallback(true);
     if (!stream_out_.open(radio_hw_id, false, 1, rate_out_, 512)) {
         stream_in_.close();
         return false;
@@ -191,8 +195,9 @@ void RadaeEncoder::close()
     stream_in_.close();
     stream_out_.close();
 
-    input_level_  = 0.0f;
-    output_level_ = 0.0f;
+    input_level_   = 0.0f;
+    output_level_  = 0.0f;
+    output_failed_ = false;
 }
 
 /* ── start / stop ────────────────────────────────────────────────────── */
@@ -207,7 +212,8 @@ void RadaeEncoder::start()
 void RadaeEncoder::stop()
 {
     //fprintf(stderr, "RadaeEncoder::stop()\n");
-    if (!running_) return;
+    /* The thread may already have stopped itself (output failure), so always
+       join rather than returning early when running_ is false. */
     running_ = false;
 
     if (thread_.joinable()) thread_.join();
@@ -218,7 +224,7 @@ void RadaeEncoder::stop()
 
 /* ── helper: write IQ real part to audio output ──────────────────────── */
 
-static void write_real_to_output(AudioStream& stream, const RADE_COMP* iq, int n_iq,
+static AudioError write_real_to_output(AudioStream& stream, const RADE_COMP* iq, int n_iq,
                                   unsigned int rate_modem, unsigned int rate_out,
                                   double& resamp_frac, float& resamp_prev,
                                   std::atomic<float>& output_level,
@@ -261,8 +267,8 @@ static void write_real_to_output(AudioStream& stream, const RADE_COMP* iq, int n
         recorder->write(out_pcm.data(), n_resamp);
 
     /* write to audio output */
-    stream.write(out_pcm.data(),
-                 static_cast<unsigned long>(n_resamp));
+    return stream.write(out_pcm.data(),
+                        static_cast<unsigned long>(n_resamp));
 }
 
 /* ── processing loop (dedicated thread) ──────────────────────────────── */
@@ -319,8 +325,12 @@ void RadaeEncoder::processing_loop()
         int prefill_out = prefill_frames
             * static_cast<int>(rate_out_) / static_cast<int>(RADE_FS);
         std::vector<int16_t> silence(static_cast<size_t>(prefill_out), 0);
-        stream_out_.write(silence.data(),
-                          static_cast<unsigned long>(prefill_out));
+        if (stream_out_.write(silence.data(),
+                              static_cast<unsigned long>(prefill_out)) == AUDIO_ERROR) {
+            fprintf(stderr, "TX: radio audio output failed\n");
+            output_failed_ = true;
+            running_       = false;
+        }
     }
 
     while (running_.load(std::memory_order_relaxed)) {
@@ -444,22 +454,29 @@ void RadaeEncoder::processing_loop()
                     }
                 }
 
+                AudioError werr;
                 {
                     std::lock_guard<std::mutex> lock(recorder_mutex_);
-                    write_real_to_output(stream_out_, tx_out.data(), n_out,
-                                         RADE_FS, rate_out_,
-                                         resamp_out_frac_, resamp_out_prev_,
-                                         output_level_, running_,
-                                         tx_scale_.load(std::memory_order_relaxed),
-                                         recorder_);
+                    werr = write_real_to_output(stream_out_, tx_out.data(), n_out,
+                                                RADE_FS, rate_out_,
+                                                resamp_out_frac_, resamp_out_prev_,
+                                                output_level_, running_,
+                                                tx_scale_.load(std::memory_order_relaxed),
+                                                recorder_);
                 }
                 feat_count = 0;
+                if (werr == AUDIO_ERROR) {
+                    fprintf(stderr, "TX: radio audio output failed\n");
+                    output_failed_ = true;
+                    running_       = false;
+                    break;
+                }
             }
         }
     }
 
     /* ── send end-of-over frame ──────────────────────────────────────── */
-    if (rade_ && stream_out_.is_open()) {
+    if (rade_ && stream_out_.is_open() && !output_failed_) {
         fprintf(stderr, "sending eoo frame\n");
         int n_out = rade_tx_eoo(rade_, eoo_out.data());
         if (bpf_enabled_.load(std::memory_order_relaxed))
